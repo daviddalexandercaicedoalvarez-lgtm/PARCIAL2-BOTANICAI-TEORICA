@@ -1,0 +1,2233 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Plataforma Educativa (Fix)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .hidden-by-default {
+            display: none;
+        }
+        .card {
+            perspective: 1000px;
+        }
+        .card-inner {
+            position: relative;
+            width: 240px;
+            height: 140px;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+        .card:hover .card-inner {
+            transform: rotateY(180deg);
+        }
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+            padding: 0.75rem;
+            box-sizing: border-box;
+        }
+        .card-front {
+            background-color: #059669;
+            color: white;
+        }
+        .card-back {
+            background-color: #b91c1c;
+            color: white;
+            transform: rotateY(180deg);
+        }
+        .draggable {
+            cursor: grab;
+            background-color: #dbeafe;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            margin: 0.25rem;
+            display: inline-block;
+            user-select: none;
+        }
+        .dropzone {
+            border: 2px dashed #94a3b8;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            min-height: 50px;
+            transition: border-color 0.25s, background-color 0.25s;
+        }
+        .btn-file {
+            background: #2563eb;
+            color: white;
+            padding: .4rem .75rem;
+            border-radius: .4rem;
+            cursor: pointer;
+        }
+        pre.map {
+            white-space: pre-wrap;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+        }
+        .link-img {
+            color: #1d4ed8;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 text-gray-800">
+    <div class="max-w-6xl mx-auto p-6">
+        <header class="mb-6">
+            <h1 class="text-3xl font-bold text-indigo-600">Plataforma Educativa Interactiva</h1>
+            <p class="text-sm text-gray-600 mt-2">
+                Recursos sobre <strong>cualquier contenido educativo, que desees agregar</strong>. Incluye quizzes secuenciales, glosario, flashcards, estructuras (imágenes via links), casos y actividades interactivas. Progreso guardado localmente.
+            </p>
+
+            <nav class="mt-4 flex flex-wrap gap-2">
+                <button class="btn" data-target="home">Inicio</button>
+                <button class="btn" data-target="quiz">Quiz</button>
+                <button class="btn" data-target="gloss">Glosario</button>
+                <button class="btn" data-target="flash">Flashcards</button>
+                <button class="btn" data-target="estructuras">Estructuras</button>
+                <button class="btn" data-target="casos">Casos</button>
+                <button class="btn" data-target="interactivo">Interactivo</button>
+                <button class="btn" data-target="map">Mapas</button>
+                <button class="btn" data-target="dash">Dashboard</button>
+                <label class="btn-file ml-2">
+                    Importar contenido (JSON)
+                    <input id="fileInput" type="file" accept="application/json" style="display:none">
+                </label>
+                <button id="exportJSON" class="btn">Exportar contenido</button>
+            </nav>
+        </header>
+
+        <!-- Home -->
+        <section id="home" class="bg-white p-5 rounded shadow">
+            <h2 id="homeTitle" class="text-xl font-semibold mb-2">Bienvenido</h2>
+
+            <p id="homeDescription" class="text-sm text-gray-700">
+                La plataforma está diseñada para estudiar y practicar los tres bloques fundamentales:
+                <strong>Endomembrana</strong> (síntesis, procesamiento y tráfico de proteínas/lípidos),
+                <strong>Estructuras y Procesos</strong> (ribosomas, lisosomas, RE, Golgi y mecanismos moleculares)
+                y <strong>Mitocondrias y Metabolismo – Plastidios y Cloroplastos</strong> (bioenergética, ATP, fotosíntesis).
+                Usa las herramientas interactivas para autoevaluación.
+            </p>
+
+            <details class="mt-4">
+                <summary class="cursor-pointer font-semibold">
+                    Editar contenido de Inicio (JSON)
+                </summary>
+
+                <textarea id="homeJSON"
+                    style="width:100%;height:160px"
+                    class="mt-2 border rounded p-2 font-mono text-sm">
+                    {
+                    "title": "Bienvenido",
+                    "description": "Texto de introducción editable desde JSON."
+                    }
+                </textarea>
+
+                <div class="mt-2 flex gap-2">
+                    <button id="loadHomeJSON" class="px-3 py-1 bg-green-600 text-white rounded">
+                        Cargar Inicio
+                    </button>
+                    <button id="exportHomeJSON" class="px-3 py-1 bg-gray-600 text-white rounded">
+                        Exportar Inicio
+                    </button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Quiz -->
+        <section id="quiz" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Quiz (secuencial por tema)</h2>
+            <div class="flex gap-3 mb-3">
+                <button id="prevQ" class="px-3 py-1 bg-gray-500 text-white rounded">Anterior</button>
+                <button id="nextQ" class="px-3 py-1 bg-indigo-600 text-white rounded">Siguiente</button>
+                <button id="showAll" class="px-3 py-1 bg-gray-600 text-white rounded">Mostrar preguntas (JSON)</button>
+                <select id="quizTopic" class="rounded border px-2"></select>
+            </div>
+
+            <div id="quizArea">
+                <p id="qText" class="font-medium mb-2">
+                    Cargando pregunta...
+                </p>
+                <div id="qOptions" class="space-y-2 mb-3"></div>
+                <button id="checkA" class="px-3 py-1 bg-amber-500 text-white rounded">Verificar</button>
+                <p id="qResult" class="mt-2 text-sm"></p>
+                <p class="text-xs text-gray-500 mt-2">
+                    Pregunta <span id="qNumber">0</span> de <span id="qTotal">0</span>
+                </p>
+            </div>
+
+            <details class="mt-4">
+                <summary class="cursor-pointer">Ver/Editar inventario de preguntas (JSON)</summary>
+                <textarea id="questionsJSON" style="width:100%;height:200px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadQuestions" class="px-3 py-1 bg-green-600 text-white rounded">Cargar preguntas desde JSON</button>
+                </div>
+            </details>
+            <details class="mt-4">
+                <summary class="cursor-pointer">Ver/Editar bloques del quiz (JSON)</summary>
+                <textarea id="quizTopicsJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadQuizTopics" class="px-3 py-1 bg-green-600 text-white rounded">Cargar bloques desde JSON</button>
+                    <button id="exportQuizTopics" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar bloques</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Glosario -->
+        <section id="gloss" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Glosario (términos técnicos)</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <input id="glossSearch" placeholder="Buscar término..." class="w-full p-2 border rounded mb-3" />
+                    <div id="glossList" style="max-height:420px;overflow:auto"></div>
+                </div>
+                <div>
+                    <h3 class="font-semibold">Agregar/editar término</h3>
+                    <input id="termInput" placeholder="Término" class="w-full p-2 border rounded mb-2" />
+                    <textarea id="defInput" placeholder="Definición" class="w-full p-2 border rounded mb-2" style="height:160px"></textarea>
+                    <div class="flex gap-2">
+                        <button id="addTerm" class="px-3 py-1 bg-green-600 text-white rounded">Agregar término</button>
+                        <button id="clearGloss" class="px-3 py-1 bg-red-500 text-white rounded">Borrar todo</button>
+                    </div>
+                </div>
+            </div>
+
+            <details class="mt-4">
+                <summary>Exportar/Importar glosario (JSON)</summary>
+                <textarea id="glossJSON" style="width:100%;height:140px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="importGloss" class="px-3 py-1 bg-blue-600 text-white rounded">Importar glosario</button>
+                    <button id="exportGloss" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar glosario</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Flashcards -->
+        <section id="flash" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Flashcards (giran al hacer hover o clic)</h2>
+            <div class="flex flex-wrap gap-4" id="flashContainer" style="min-height:160px"></div>
+
+            <details class="mt-4">
+                <summary>Administrar flashcards (JSON)</summary>
+                <textarea id="flashJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadFlash" class="px-3 py-1 bg-green-600 text-white rounded">Cargar flashcards</button>
+                    <button id="exportFlash" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar flashcards</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Estructuras -->
+        <section id="estructuras" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Estructuras: identificación (imágenes como links)</h2>
+            <p class="text-sm text-gray-700 mb-3">
+                Haz clic en el enlace para abrir la imagen en nueva pestaña y luego elige la opción correcta.
+            </p>
+
+            <div id="structuresArea" class="space-y-4"></div>
+
+            <details class="mt-4">
+                <summary>Administrar estructuras (JSON)</summary>
+                <textarea id="structuresJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadStructures" class="px-3 py-1 bg-green-600 text-white rounded">Cargar estructuras</button>
+                    <button id="exportStructures" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar estructuras</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Casos -->
+        <section id="casos" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Casos de análisis (escenarios clínico/experimentales)</h2>
+            <div id="casesArea"></div>
+
+            <details class="mt-4">
+                <summary>Administrar casos (JSON)</summary>
+                <textarea id="casesJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadCases" class="px-3 py-1 bg-green-600 text-white rounded">Cargar casos</button>
+                    <button id="exportCases" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar casos</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Interactivo -->
+        <section id="interactivo" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Interactivo: arrastra y suelta / completar</h2>
+            <p class="text-sm mb-3">
+                Ejercicios arrastrar-soltar y completar. Los ejercicios se cargan desde JSON (50 ítems) para mantener compatibilidad.
+            </p>
+
+            <div id="interactiveArea" class="space-y-4"></div>
+
+            <details class="mt-4">
+                <summary>Administrar interactivos (JSON)</summary>
+                <textarea id="interJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadInter" class="px-3 py-1 bg-green-600 text-white rounded">Cargar interactivos</button>
+                    <button id="exportInter" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar interactivos</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Mapas -->
+        <section id="map" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Mapas conceptuales</h2>
+            <div id="mapsDisplay" class="grid grid-cols-1 gap-4 mb-3"></div>
+
+            <details class="mt-4">
+                <summary>Administrar mapas (JSON)</summary>
+                <textarea id="mapsJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadMaps" class="px-3 py-1 bg-green-600 text-white rounded">Cargar mapas</button>
+                    <button id="exportMaps" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar mapas</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Dashboard -->
+        <section id="dash" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Dashboard de progreso</h2>
+
+            <p class="text-sm">
+                Puntaje total:
+                <span id="score">0</span> /
+                <span id="maxScore">0</span>
+            </p>
+
+            <p class="text-sm mt-1">
+                Progreso general:
+                <span id="scorePercent">0%</span>
+            </p>
+
+            <button id="reset" class="mt-2 px-3 py-1 bg-red-500 text-white rounded">
+                Reiniciar progreso
+            </button>
+
+            <div class="mt-4">
+                <h3 class="font-semibold">Progreso por sección</h3>
+                <ul class="list-disc ml-6 text-sm">
+                    <li>Quiz: <span id="progressQuiz" class="font-semibold text-blue-600">0 / 0 - 0%</span></li>
+                    <li>Glosario: <span id="progressGloss" class="font-semibold text-green-600">0 / 0 - 0%</span></li>
+                    <li>Flashcards: <span id="progressFlash" class="font-semibold text-purple-600">0 / 0 - 0%</span></li>
+                    <li>Estructuras: <span id="progressStructures" class="font-semibold text-indigo-600">0 / 0 - 0%</span></li>
+                    <li>Casos: <span id="progressCases" class="font-semibold text-red-600">0 / 0 - 0%</span></li>
+                    <li>Interactivo: <span id="progressInteractive" class="font-semibold text-amber-600">0 / 0 - 0%</span></li>
+                    <li>Mapas: <span id="progressMaps" class="font-semibold text-teal-600">0 / 0 - 0%</span></li>
+                </ul>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        function normalizeText(value) {
+            return String(value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/\s+/g, ' ')
+            .trim();
+        }
+
+        /* --------------------------
+ESTRUCTURA DE DATOS (DB) - muestra mínima inicial para pruebas.
+Reemplaza con tu JSON grande importándolo.
+-------------------------- */
+        let DB = {
+            "quizTopics": [{
+                "value": "raiz",
+                "label": "1) Raíz: anatomía, desarrollo y adaptaciones"
+            },
+                {
+                    "value": "tallo",
+                    "label": "2) Tallo: anatomía, crecimiento y modificaciones"
+                },
+                {
+                    "value": "grupos_vegetales",
+                    "label": "3) Tallo en los grupos vegetales y estelas"
+                },
+                {
+                    "value": "hoja_anatomia",
+                    "label": "4) Hoja: anatomía, tejidos y funciones"
+                },
+                {
+                    "value": "fotosintesis",
+                    "label": "5) Fotosíntesis C3, C4, C2 y CAM"
+                },
+                {
+                    "value": "morfologia_foliar",
+                    "label": "6) Morfología, clasificación y adaptaciones foliares"
+                }],
+            "questions": [{
+                "id": "q1",
+                "topic": "raiz",
+                "text": "¿Qué estructura protege directamente el meristemo apical radical y participa en la percepción de la gravedad?",
+                "options": [
+                    "Endodermis",
+                    "Caliptra o cofia",
+                    "Periciclo",
+                    "Rizodermis"
+                ],
+                "answer": 1,
+                "explain": "La caliptra protege el ápice radical. En su región central, la columela contiene células con amiloplastos que funcionan como estatolitos y participan en la percepción gravitacional."
+            },
+                {
+                    "id": "q2",
+                    "topic": "raiz",
+                    "text": "¿Qué consecuencia funcional produce la banda de Caspary en la endodermis?",
+                    "options": [
+                        "Estimula directamente la formación de pelos radicales",
+                        "Permite el transporte apoplástico sin restricciones",
+                        "Interrumpe la vía apoplástica y obliga al paso selectivo por membranas",
+                        "Transforma el floema en xilema secundario"
+                    ],
+                    "answer": 2,
+                    "explain": "La banda de Caspary bloquea el desplazamiento apoplástico a través de las paredes celulares. Por ello, el agua y los solutos deben atravesar membranas plasmáticas, permitiendo una regulación selectiva antes de ingresar al cilindro vascular."
+                },
+                {
+                    "id": "q3",
+                    "topic": "raiz",
+                    "text": "¿Qué tejido origina principalmente las raíces laterales?",
+                    "options": [
+                        "Periciclo",
+                        "Endodermis",
+                        "Rizodermis",
+                        "Médula"
+                    ],
+                    "answer": 0,
+                    "explain": "Las raíces laterales se originan endógenamente a partir de células del periciclo, que recuperan actividad meristemática y forman primordios radicales."
+                },
+                {
+                    "id": "q4",
+                    "topic": "raiz",
+                    "text": "En una raíz con xilema primario exarco, ¿dónde se localiza el protoxilema respecto al metaxilema?",
+                    "options": [
+                        "En la región central, rodeado por metaxilema",
+                        "Alternando con el floema, sin orientación definida",
+                        "En una médula central independiente",
+                        "Hacia la periferia, mientras el metaxilema se diferencia hacia el centro"
+                    ],
+                    "answer": 3,
+                    "explain": "La maduración exarca caracteriza típicamente a la raíz: el protoxilema se ubica hacia la periferia y el metaxilema hacia el centro. En el tallo de las espermatófitas es frecuente la maduración endarca."
+                },
+                {
+                    "id": "q5",
+                    "topic": "raiz",
+                    "text": "¿Cuál es la relación correcta entre estatolitos y gravitropismo radical?",
+                    "options": [
+                        "Los estatolitos son proteínas del floema que transportan auxina",
+                        "Los amiloplastos sedimentan en células de la columela y participan en la percepción de la gravedad",
+                        "Los estatolitos forman la banda de Caspary",
+                        "Los amiloplastos producen directamente raíces laterales"
+                    ],
+                    "answer": 1,
+                    "explain": "Los amiloplastos densos de las células de la columela sedimentan en respuesta a la gravedad. Esta percepción se relaciona con la redistribución de auxina y el crecimiento diferencial que produce la curvatura radical."
+                },
+                {
+                    "id": "q6",
+                    "topic": "tallo",
+                    "text": "¿Qué combinación de caracteres permite identificar externamente un tallo?",
+                    "options": [
+                        "Caliptra, pelos radicales y ausencia de órganos laterales",
+                        "Banda de Caspary, periciclo y xilema exarco",
+                        "Nudos, entrenudos y yemas",
+                        "Columela, tricoblastos y raíces laterales"
+                    ],
+                    "answer": 2,
+                    "explain": "El tallo se reconoce por la presencia de nudos, entrenudos y yemas. En los nudos se insertan hojas y ramas, mientras que las yemas permiten el crecimiento y la ramificación."
+                },
+                {
+                    "id": "q7",
+                    "topic": "tallo",
+                    "text": "¿Qué meristemo produce el xilema secundario hacia el interior y el floema secundario hacia el exterior?",
+                    "options": [
+                        "Cámbium vascular",
+                        "Felógeno",
+                        "Meristemo apical del vástago",
+                        "Procámbium exclusivamente"
+                    ],
+                    "answer": 0,
+                    "explain": "El cámbium vascular es un meristemo lateral que produce xilema secundario hacia el interior y floema secundario hacia el exterior. El xilema secundario constituye la mayor parte de la madera."
+                },
+                {
+                    "id": "q8",
+                    "topic": "tallo",
+                    "text": "¿Qué tejidos produce el felógeno durante el crecimiento secundario?",
+                    "options": [
+                        "Xilema y floema secundarios",
+                        "Epidermis y mesófilo",
+                        "Colénquima y esclerénquima exclusivamente",
+                        "Felema hacia el exterior y felodermis hacia el interior"
+                    ],
+                    "answer": 3,
+                    "explain": "El felógeno o cámbium suberoso produce felema o súber hacia afuera y felodermis hacia adentro. Estos tejidos integran la peridermis, que reemplaza la epidermis durante el engrosamiento secundario."
+                },
+                {
+                    "id": "q9",
+                    "topic": "tallo",
+                    "text": "¿Cuál es la diferencia anatómica fundamental entre un haz vascular abierto y uno cerrado?",
+                    "options": [
+                        "El abierto carece de floema y el cerrado carece de xilema",
+                        "El abierto presenta cámbium entre xilema y floema; el cerrado no",
+                        "El abierto siempre es radial y el cerrado siempre concéntrico",
+                        "El cerrado presenta crecimiento secundario obligatorio"
+                    ],
+                    "answer": 1,
+                    "explain": "Los haces abiertos poseen cámbium vascular entre xilema y floema y pueden participar en el crecimiento secundario. Los haces cerrados carecen de ese cámbium."
+                },
+                {
+                    "id": "q10",
+                    "topic": "tallo",
+                    "text": "Una estructura subterránea presenta nudos, entrenudos y yemas, y almacena reservas. ¿Cómo debe identificarse?",
+                    "options": [
+                        "Raíz tuberosa",
+                        "Neumatóforo",
+                        "Tubérculo caulinar",
+                        "Velamen radicum"
+                    ],
+                    "answer": 2,
+                    "explain": "El tubérculo caulinar es un tallo engrosado con yemas. La presencia de nudos y ojos permite diferenciarlo de una raíz tuberosa, que no presenta la organización caulinar típica."
+                },
+                {
+                    "id": "q11",
+                    "topic": "grupos_vegetales",
+                    "text": "¿Qué organización vascular caracteriza típicamente a muchos tallos de monocotiledóneas?",
+                    "options": [
+                        "Atactostela, con haces vasculares dispersos en el tejido fundamental",
+                        "Eustela, con haces dispuestos en un anillo continuo",
+                        "Protostela, con cilindro vascular sólido sin médula",
+                        "Sifonostela, con cilindro vascular alrededor de una médula"
+                    ],
+                    "answer": 0,
+                    "explain": "La atactostela presenta haces vasculares dispersos en el tejido fundamental y es característica de muchos tallos de monocotiledóneas. Sus haces suelen ser cerrados."
+                },
+                {
+                    "id": "q12",
+                    "topic": "grupos_vegetales",
+                    "text": "¿Qué diferencia anatómica caracteriza a la protostela frente a la sifonostela?",
+                    "options": [
+                        "La protostela presenta haces dispersos y la sifonostela carece de tejido vascular",
+                        "La protostela posee médula y la sifonostela no",
+                        "Ambas presentan haces vasculares dispuestos exclusivamente en un anillo",
+                        "La protostela presenta un cilindro vascular sólido sin médula; la sifonostela rodea una médula"
+                    ],
+                    "answer": 3,
+                    "explain": "La protostela presenta un cilindro vascular sólido, sin médula central. En la sifonostela, el tejido vascular se dispone alrededor de una médula."
+                },
+                {
+                    "id": "q13",
+                    "topic": "grupos_vegetales",
+                    "text": "¿Qué asociación describe correctamente a los licófitos según el material de estudio?",
+                    "options": [
+                        "Atactostela, haces cerrados y xilema endarco",
+                        "Protostela, xilema primario generalmente exarco y variantes como actinostela o plectostela",
+                        "Eustela, madera homóxila y canales resiníferos",
+                        "Sifonostela, xilema mesarco y médula central obligatoria"
+                    ],
+                    "answer": 1,
+                    "explain": "En los licófitos predomina la protostela, con xilema primario generalmente exarco. Entre sus variantes se encuentran la actinostela y la plectostela; su ramificación puede ser dicotómica."
+                },
+                {
+                    "id": "q14",
+                    "topic": "grupos_vegetales",
+                    "text": "¿Qué característica distingue a los briófitos respecto a los tallos de plantas vasculares?",
+                    "options": [
+                        "Poseen siempre eustela y cámbium bifacial",
+                        "Presentan atactostela con haces colaterales cerrados",
+                        "Sus caulidios carecen de xilema y floema verdaderos; algunos poseen hidroides y leptoides",
+                        "Presentan madera secundaria formada por elementos de vaso"
+                    ],
+                    "answer": 2,
+                    "explain": "Los briófitos presentan caulidios y no tallos vasculares verdaderos. Algunos musgos poseen hidroides y leptoides, pero no equivalen al xilema y floema típicos de las plantas vasculares."
+                },
+                {
+                    "id": "q15",
+                    "topic": "grupos_vegetales",
+                    "text": "¿Cuál asociación corresponde a los tallos de gimnospermas?",
+                    "options": [
+                        "Eustela, xilema endarco, cámbium bifacial y madera principalmente formada por traqueidas",
+                        "Atactostela, haces cerrados y ausencia de crecimiento secundario típico",
+                        "Protostela, xilema exarco y ausencia de médula",
+                        "Sifonostela, hidroides y leptoides"
+                    ],
+                    "answer": 0,
+                    "explain": "Las gimnospermas presentan típicamente eustela y xilema primario endarco. Su cámbium bifacial produce tejidos secundarios y su madera es principalmente homóxila, con predominio de traqueidas."
+                },
+                {
+                    "id": "q16",
+                    "topic": "hoja_anatomia",
+                    "text": "En una hoja dorsiventral típica, ¿cómo se organiza el mesófilo?",
+                    "options": [
+                        "Xilema hacia la cara abaxial y floema hacia la adaxial",
+                        "Únicamente tejido vascular, sin parénquima",
+                        "Parénquima esponjoso hacia la cara adaxial y empalizada hacia la abaxial",
+                        "Parénquima en empalizada hacia la cara adaxial y esponjoso hacia la abaxial"
+                    ],
+                    "answer": 3,
+                    "explain": "En una hoja dorsiventral típica, el parénquima en empalizada se encuentra hacia la cara adaxial y el esponjoso hacia la abaxial. El primero está especializado en la captación de luz y el segundo facilita el intercambio gaseoso mediante espacios intercelulares."
+                },
+                {
+                    "id": "q17",
+                    "topic": "hoja_anatomia",
+                    "text": "¿Cuál es la orientación vascular más frecuente en los haces de una hoja?",
+                    "options": [
+                        "Floema hacia la cara adaxial y xilema hacia la abaxial",
+                        "Xilema hacia la cara adaxial y floema hacia la abaxial",
+                        "Xilema y floema exclusivamente en la epidermis",
+                        "Xilema y floema sin orientación definida en todos los tipos foliares"
+                    ],
+                    "answer": 1,
+                    "explain": "En los haces vasculares foliares típicos, el xilema se orienta hacia la cara adaxial y el floema hacia la cara abaxial. La vaina del haz delimita el tejido vascular."
+                },
+                {
+                    "id": "q18",
+                    "topic": "fotosintesis",
+                    "text": "¿Cuál es el primer producto estable de la fijación de CO₂ en la vía fotosintética C3?",
+                    "options": [
+                        "Oxaloacetato",
+                        "Malato",
+                        "3-fosfoglicerato",
+                        "Glicina"
+                    ],
+                    "answer": 2,
+                    "explain": "En las plantas C3, la RuBisCO fija CO₂ en el ciclo de Calvin y se produce 3-fosfoglicerato como primer compuesto estable de tres carbonos."
+                },
+                {
+                    "id": "q19",
+                    "topic": "fotosintesis",
+                    "text": "¿Qué característica permite diferenciar funcionalmente la fotosíntesis C4 de la C3?",
+                    "options": [
+                        "La C4 utiliza PEPC para la fijación inicial y presenta separación espacial respecto al ciclo de Calvin",
+                        "La C4 realiza toda la fijación exclusivamente durante la noche",
+                        "La C4 carece de ciclo de Calvin",
+                        "La C4 utiliza únicamente la lanzadera de glicina"
+                    ],
+                    "answer": 0,
+                    "explain": "En la vía C4, la PEPC fija inicialmente el carbono y forma oxaloacetato, que puede convertirse en otros ácidos de cuatro carbonos. La concentración de CO₂ y el ciclo de Calvin se organizan espacialmente mediante la anatomía Kranz."
+                },
+                {
+                    "id": "q20",
+                    "topic": "fotosintesis",
+                    "text": "¿Qué mecanismo caracteriza a las plantas C2?",
+                    "options": [
+                        "Separación temporal entre fijación nocturna y descarboxilación diurna",
+                        "Fijación inicial exclusiva por RuBisCO sin fotorrespiración",
+                        "Almacenamiento nocturno de malato en vacuolas",
+                        "Lanzadera fotorrespiratoria de glicina y compartimentación de la actividad del complejo GDC"
+                    ],
+                    "answer": 3,
+                    "explain": "La vía C2 utiliza una lanzadera fotorrespiratoria de glicina. La compartimentación de la actividad del complejo glicina descarboxilasa (GDC), restringida en la vaina del haz, contribuye a concentrar CO₂ alrededor de la RuBisCO."
+                },
+                {
+                    "id": "q21",
+                    "topic": "fotosintesis",
+                    "text": "¿Cuál es la secuencia funcional característica del metabolismo CAM?",
+                    "options": [
+                        "Fijación diurna por PEPC y liberación nocturna de CO₂",
+                        "Fijación nocturna de CO₂, formación y almacenamiento vacuolar de malato, y descarboxilación diurna",
+                        "Fijación continua exclusivamente por RuBisCO sin almacenamiento",
+                        "Fijación nocturna mediante el complejo GDC y almacenamiento de glicina"
+                    ],
+                    "answer": 1,
+                    "explain": "Las plantas CAM abren sus estomas principalmente durante la noche y fijan CO₂ mediante PEPC, formando ácidos orgánicos como malato. Durante el día, el malato se descarboxila y suministra CO₂ al ciclo de Calvin mientras los estomas permanecen generalmente cerrados."
+                },
+                {
+                    "id": "q22",
+                    "topic": "morfologia_foliar",
+                    "text": "¿Qué criterio permite distinguir una hoja compuesta de una hoja simple profundamente lobulada?",
+                    "options": [
+                        "La presencia de nervaduras secundarias",
+                        "La presencia de cutícula en el limbo",
+                        "La posición de la yema axilar: aparece en la base de la hoja completa, no en la base de cada folíolo",
+                        "El número de estomas por unidad de superficie"
+                    ],
+                    "answer": 2,
+                    "explain": "La yema axilar se localiza en la base de la hoja completa. Los folíolos de una hoja compuesta no presentan una yema axilar propia en su base, lo que permite diferenciarlos de hojas independientes."
+                },
+                {
+                    "id": "q23",
+                    "topic": "morfologia_foliar",
+                    "text": "Una hoja presenta nervios principales paralelos unidos por comisuras. ¿Qué tipo de venación corresponde?",
+                    "options": [
+                        "Paralelinervia",
+                        "Pinnado-reticulada",
+                        "Dicotómica",
+                        "Uninervia"
+                    ],
+                    "answer": 0,
+                    "explain": "La venación paralelinervia presenta nervios principales que discurren paralelamente y se conectan mediante comisuras. Es frecuente en monocotiledóneas."
+                },
+                {
+                    "id": "q24",
+                    "topic": "morfologia_foliar",
+                    "text": "¿Qué diferencia existe entre una espina caulinar y un aguijón?",
+                    "options": [
+                        "Ambos son hojas modificadas con tejido vascular propio",
+                        "La espina es una raíz modificada y el aguijón es una yema",
+                        "El aguijón siempre presenta nudos y entrenudos",
+                        "La espina es un órgano modificado; el aguijón es una proyección superficial sin conexión vascular equivalente"
+                    ],
+                    "answer": 3,
+                    "explain": "Las espinas son órganos transformados, como hojas o ramas, con organización interna y vascularización correspondiente a su origen. Los aguijones son protuberancias superficiales sin conexión vascular equivalente."
+                },
+                {
+                    "id": "q25",
+                    "topic": "morfologia_foliar",
+                    "text": "¿Qué modificación foliar presenta una lámina transformada en una estructura de captura y digestión de presas?",
+                    "options": [
+                        "Filodio",
+                        "Ascidio o jarro",
+                        "Pulvínulo",
+                        "Profilo"
+                    ],
+                    "answer": 1,
+                    "explain": "El ascidio o jarro es una modificación del limbo foliar que forma una estructura especializada en la captura y digestión de presas, como ocurre en Nepenthes y Sarracenia."
+                }],
+            "glossary": [{
+                "term": "Caliptra o cofia",
+                "def": "Estructura protectora del ápice radical. Su columela contiene células con amiloplastos-estatolitos implicados en la percepción de la gravedad."
+            },
+                {
+                    "term": "Meristemo apical radical (RAM)",
+                    "def": "Región meristemática responsable del crecimiento primario de la raíz y de la producción de tejidos primarios."
+                },
+                {
+                    "term": "Centro quiescente",
+                    "def": "Grupo de células con baja actividad mitótica situado en el meristemo apical radical, relacionado con el mantenimiento de la organización meristemática."
+                },
+                {
+                    "term": "Rizodermis",
+                    "def": "Tejido dérmico externo de la raíz, especializado en la absorción de agua y minerales. Puede formar pelos radicales."
+                },
+                {
+                    "term": "Tricoblasto",
+                    "def": "Célula de la rizodermis especializada en formar un pelo radical, aumentando la superficie de absorción."
+                },
+                {
+                    "term": "Banda de Caspary",
+                    "def": "Engrosamiento impregnado de sustancias hidrofóbicas en las paredes de las células endodérmicas que interrumpe la vía apoplástica y favorece el transporte selectivo."
+                },
+                {
+                    "term": "Periciclo",
+                    "def": "Tejido situado internamente a la endodermis que origina las raíces laterales y participa en el crecimiento secundario de ciertas raíces."
+                },
+                {
+                    "term": "Columela",
+                    "def": "Región central de la caliptra que contiene células con amiloplastos-estatolitos y participa en la percepción gravitacional."
+                },
+                {
+                    "term": "Estatolitos",
+                    "def": "Amiloplastos densos que sedimentan en células especializadas y permiten percibir la dirección de la gravedad."
+                },
+                {
+                    "term": "Velamen radicum",
+                    "def": "Tejido multiestratificado de raíces aéreas de ciertas epífitas, especialmente orquídeas, relacionado con la captación y retención de agua."
+                },
+                {
+                    "term": "Neumatóforo",
+                    "def": "Modificación radical especializada en facilitar el intercambio gaseoso en ambientes con baja disponibilidad de oxígeno en el suelo."
+                },
+                {
+                    "term": "Raíz haustorial",
+                    "def": "Raíz especializada que establece conexión con tejidos de una planta hospedera para obtener recursos."
+                },
+                {
+                    "term": "Meristemo apical del vástago (MAV)",
+                    "def": "Región meristemática del ápice del tallo que produce el crecimiento longitudinal, los primordios foliares y los tejidos primarios del vástago."
+                },
+                {
+                    "term": "Procámbium",
+                    "def": "Meristemo primario que origina los tejidos vasculares primarios: xilema y floema."
+                },
+                {
+                    "term": "Meristema fundamental",
+                    "def": "Meristemo primario que origina tejidos fundamentales como corteza, médula y radios."
+                },
+                {
+                    "term": "Haz vascular abierto",
+                    "def": "Haz que presenta cámbium entre el xilema y el floema, con capacidad de participar en el crecimiento secundario."
+                },
+                {
+                    "term": "Haz vascular cerrado",
+                    "def": "Haz vascular que carece de cámbium entre xilema y floema."
+                },
+                {
+                    "term": "Protostela",
+                    "def": "Organización vascular con un cilindro central sólido de tejido vascular, sin médula. Incluye variantes como actinostela y plectostela."
+                },
+                {
+                    "term": "Sifonostela",
+                    "def": "Organización vascular en la que el tejido vascular forma un cilindro alrededor de una médula central."
+                },
+                {
+                    "term": "Eustela",
+                    "def": "Organización vascular con haces dispuestos en anillo, frecuente en tallos de gimnospermas y eudicotiledóneas."
+                },
+                {
+                    "term": "Atactostela",
+                    "def": "Organización vascular con haces dispersos en el tejido fundamental, característica de muchos tallos de monocotiledóneas."
+                },
+                {
+                    "term": "Cámbium vascular",
+                    "def": "Meristemo lateral que produce xilema secundario hacia el interior y floema secundario hacia el exterior."
+                },
+                {
+                    "term": "Felógeno",
+                    "def": "Meristemo lateral que produce felema hacia el exterior y felodermis hacia el interior, formando la peridermis."
+                },
+                {
+                    "term": "Peridermis",
+                    "def": "Tejido protector secundario compuesto por felógeno, felema y felodermis que reemplaza la epidermis durante el engrosamiento."
+                },
+                {
+                    "term": "Albura",
+                    "def": "Región externa y funcional del xilema secundario que participa principalmente en la conducción de agua y minerales."
+                },
+                {
+                    "term": "Duramen",
+                    "def": "Región interna del xilema secundario, generalmente no conductora y con función principalmente estructural."
+                },
+                {
+                    "term": "Lenticela",
+                    "def": "Región de la peridermis que facilita el intercambio gaseoso entre los tejidos internos del tallo y el ambiente."
+                },
+                {
+                    "term": "Caulidio",
+                    "def": "Eje semejante a un tallo presente en briófitos, pero sin la organización vascular típica de los tallos de plantas vasculares."
+                },
+                {
+                    "term": "Hidroides",
+                    "def": "Células conductoras de agua presentes en algunos briófitos; no equivalen completamente a los elementos del xilema."
+                },
+                {
+                    "term": "Leptoides",
+                    "def": "Células conductoras de sustancias orgánicas presentes en algunos briófitos; no equivalen completamente a los elementos del floema."
+                },
+                {
+                    "term": "Hoja dorsiventral",
+                    "def": "Hoja con diferenciación entre las caras adaxial y abaxial, generalmente con parénquima en empalizada hacia la cara adaxial y esponjoso hacia la abaxial."
+                },
+                {
+                    "term": "Cara adaxial",
+                    "def": "Superficie foliar orientada hacia el eje del vástago, frecuentemente asociada con la epidermis superior y el parénquima en empalizada."
+                },
+                {
+                    "term": "Cara abaxial",
+                    "def": "Superficie foliar opuesta al eje del vástago, frecuentemente asociada con la epidermis inferior y una mayor concentración de estomas."
+                },
+                {
+                    "term": "Mesófilo",
+                    "def": "Tejido fundamental situado entre las epidermis foliares, generalmente especializado en la fotosíntesis y organizado en parénquima en empalizada y esponjoso."
+                },
+                {
+                    "term": "Parénquima en empalizada",
+                    "def": "Tejido fotosintético con células alargadas y relativamente compactas, generalmente ubicado hacia la cara adaxial de hojas dorsiventrales."
+                },
+                {
+                    "term": "Parénquima esponjoso",
+                    "def": "Tejido fotosintético con amplios espacios intercelulares que favorecen la difusión de gases dentro de la hoja."
+                },
+                {
+                    "term": "Vaina del haz",
+                    "def": "Capa de células que rodea los haces vasculares foliares y delimita el tejido vascular respecto al mesófilo."
+                },
+                {
+                    "term": "Anatomía Kranz",
+                    "def": "Organización anatómica característica de muchas plantas C4, con células del mesófilo y de la vaina del haz especializadas en etapas diferentes de la concentración y fijación del carbono."
+                },
+                {
+                    "term": "RuBisCO",
+                    "def": "Enzima que cataliza la fijación de CO₂ en el ciclo de Calvin y también puede actuar como oxigenasa, iniciando la fotorrespiración."
+                },
+                {
+                    "term": "PEPC",
+                    "def": "Fosfoenolpiruvato carboxilasa, enzima que fija inicialmente bicarbonato en las vías C4 y CAM, formando oxaloacetato."
+                },
+                {
+                    "term": "Fotorrespiración",
+                    "def": "Proceso asociado a la actividad oxigenasa de la RuBisCO que conduce al metabolismo y reciclaje de compuestos derivados de la oxigenación de RuBP."
+                },
+                {
+                    "term": "Complejo GDC",
+                    "def": "Complejo glicina descarboxilasa que participa en el metabolismo de la glicina durante la fotorrespiración y cuya compartimentación es importante en el mecanismo C2."
+                },
+                {
+                    "term": "Metabolismo CAM",
+                    "def": "Vía fotosintética que separa temporalmente la fijación inicial nocturna de CO₂ y su utilización diurna en el ciclo de Calvin."
+                },
+                {
+                    "term": "Filodio",
+                    "def": "Pecíolo o región foliar aplanada que asume la función fotosintética del limbo."
+                },
+                {
+                    "term": "Pulvínulo",
+                    "def": "Engrosamiento situado en la base del pecíolo o peciólulo que participa en movimientos násticos mediante cambios reversibles de turgencia."
+                },
+                {
+                    "term": "Filotaxia",
+                    "def": "Patrón de disposición de las hojas sobre el tallo, que puede ser alterno, opuesto, verticilado o espiralado."
+                },
+                {
+                    "term": "Actinódroma",
+                    "def": "Categoría de venación en la que tres o más nervios primarios divergen desde un punto basal o suprabasal."
+                },
+                {
+                    "term": "Craspedódroma",
+                    "def": "Patrón de venación en el que las nervaduras secundarias alcanzan directamente el margen de la lámina."
+                },
+                {
+                    "term": "Camptódroma",
+                    "def": "Patrón en el que las nervaduras secundarias se curvan y conectan antes de alcanzar el margen foliar."
+                },
+                {
+                    "term": "Zarcillo",
+                    "def": "Estructura alargada de origen caulinar, foliar o mixto que permite la sujeción y el ascenso de la planta."
+                },
+                {
+                    "term": "Aguijón",
+                    "def": "Protuberancia superficial de función defensiva que carece de una conexión vascular equivalente a la de una espina."
+                }],
+            "flashcards": [{
+                "id": "f1",
+                "front": "¿Cuál es la secuencia de zonas del ápice radical?",
+                "back": "Caliptra o cofia → meristemo apical radical y centro quiescente → zona de división → zona de elongación → zona de diferenciación o maduración."
+            },
+                {
+                    "id": "f2",
+                    "front": "¿Qué función cumple la banda de Caspary?",
+                    "back": "Interrumpe la vía apoplástica en la endodermis y obliga al paso selectivo por membranas antes del ingreso al cilindro vascular."
+                },
+                {
+                    "id": "f3",
+                    "front": "¿Qué origina el periciclo?",
+                    "back": "Principalmente raíces laterales. También puede participar en el establecimiento del cámbium durante el crecimiento secundario."
+                },
+                {
+                    "id": "f4",
+                    "front": "¿Qué significa xilema exarco?",
+                    "back": "El protoxilema se ubica hacia la periferia y el metaxilema hacia el centro. Es el patrón típico de la raíz."
+                },
+                {
+                    "id": "f5",
+                    "front": "¿Qué diferencia una raíz pivotante de una fasciculada?",
+                    "back": "Pivotante: raíz principal dominante con laterales. Fasciculada: numerosas raíces de calibre semejante."
+                },
+                {
+                    "id": "f6",
+                    "front": "¿Qué adaptaciones radicales facilitan funciones especializadas?",
+                    "back": "Neumatóforos: intercambio gaseoso; velamen: captación de agua; raíces zancudas y fúlcreas: soporte; haustorios: conexión con hospederos; raíces tuberosas: almacenamiento."
+                },
+                {
+                    "id": "f7",
+                    "front": "¿Qué caracteriza externamente al tallo?",
+                    "back": "Nudos, entrenudos y yemas. Los nudos insertan hojas y ramas; las yemas permiten crecimiento y ramificación."
+                },
+                {
+                    "id": "f8",
+                    "front": "¿Qué diferencia el xilema primario del tallo y de la raíz?",
+                    "back": "Tallo: patrón típicamente endarco, protoxilema hacia el centro. Raíz: patrón típicamente exarco, protoxilema hacia la periferia."
+                },
+                {
+                    "id": "f9",
+                    "front": "¿Qué produce el cámbium vascular?",
+                    "back": "Xilema secundario hacia adentro y floema secundario hacia afuera. El xilema secundario constituye la madera."
+                },
+                {
+                    "id": "f10",
+                    "front": "¿Qué produce el felógeno?",
+                    "back": "Felema hacia el exterior y felodermis hacia el interior; ambos tejidos forman parte de la peridermis."
+                },
+                {
+                    "id": "f11",
+                    "front": "¿Qué diferencia albura y duramen?",
+                    "back": "Albura: xilema secundario externo funcional y conductor. Duramen: región interna con función principalmente estructural."
+                },
+                {
+                    "id": "f12",
+                    "front": "¿Qué diferencia protostela, sifonostela, eustela y atactostela?",
+                    "back": "Protostela: cilindro vascular sólido sin médula. Sifonostela: tejido vascular alrededor de médula. Eustela: haces en anillo. Atactostela: haces dispersos."
+                },
+                {
+                    "id": "f13",
+                    "front": "¿Qué caracteriza a los briófitos?",
+                    "back": "Caulidios sin xilema ni floema verdaderos. Algunos musgos poseen hidroides y leptoides; el transporte también depende de difusión y capilaridad."
+                },
+                {
+                    "id": "f14",
+                    "front": "¿Qué caracteriza a los licófitos?",
+                    "back": "Protostela frecuente, xilema primario generalmente exarco, variantes actinostela y plectostela, y ramificación dicotómica."
+                },
+                {
+                    "id": "f15",
+                    "front": "¿Qué caracteriza a los tallos de helechos?",
+                    "back": "Muchos presentan rizomas y sifonostela alrededor de una médula; el xilema suele ser mesarco y generalmente no presentan crecimiento secundario típico."
+                },
+                {
+                    "id": "f16",
+                    "front": "¿Qué caracteriza a Equisetum?",
+                    "back": "Nudos y entrenudos evidentes, con hojas reducidas dispuestas en verticilos que forman vainas foliares."
+                },
+                {
+                    "id": "f17",
+                    "front": "¿Qué caracteriza a las gimnospermas?",
+                    "back": "Eustela, xilema primario endarco, cámbium bifacial, madera principalmente homóxila con traqueidas y presencia posible de canales resiníferos."
+                },
+                {
+                    "id": "f18",
+                    "front": "¿Qué diferencia monocotiledóneas y eudicotiledóneas en el tallo?",
+                    "back": "Monocotiledóneas: atactostela y haces generalmente cerrados. Eudicotiledóneas: eustela y haces generalmente abiertos o bicolaterales, con crecimiento secundario frecuente."
+                },
+                {
+                    "id": "f19",
+                    "front": "¿Qué caracteriza una hoja dorsiventral?",
+                    "back": "Presenta diferenciación adaxial-abaxial: empalizada hacia la cara adaxial y parénquima esponjoso hacia la abaxial."
+                },
+                {
+                    "id": "f20",
+                    "front": "¿Cómo se orientan generalmente xilema y floema en la hoja?",
+                    "back": "Xilema hacia la cara adaxial y floema hacia la cara abaxial; el haz está delimitado por una vaina."
+                },
+                {
+                    "id": "f21",
+                    "front": "¿Qué caracteriza la fotosíntesis C3?",
+                    "back": "La RuBisCO fija CO₂ en el ciclo de Calvin y el primer producto estable es 3-fosfoglicerato."
+                },
+                {
+                    "id": "f22",
+                    "front": "¿Qué caracteriza la fotosíntesis C4?",
+                    "back": "La PEPC realiza la fijación inicial y forma oxaloacetato; existe separación espacial entre la fijación inicial y el ciclo de Calvin mediante anatomía Kranz."
+                },
+                {
+                    "id": "f23",
+                    "front": "¿Qué caracteriza la fotosíntesis C2?",
+                    "back": "Una lanzadera fotorrespiratoria de glicina y compartimentación de la actividad del complejo GDC en la vaina del haz."
+                },
+                {
+                    "id": "f24",
+                    "front": "¿Qué caracteriza el metabolismo CAM?",
+                    "back": "Fijación nocturna por PEPC, almacenamiento vacuolar de malato y descarboxilación diurna para suministrar CO₂ al ciclo de Calvin."
+                },
+                {
+                    "id": "f25",
+                    "front": "¿Qué adaptaciones foliares son frecuentes en xerófitas?",
+                    "back": "Cutícula gruesa, ceras epicuticulares, tricomas, criptas estomáticas y parénquima acuífero; reducen la pérdida de agua o permiten almacenarla."
+                },
+                {
+                    "id": "f26",
+                    "front": "¿Qué adaptaciones foliares son frecuentes en hidrófitas?",
+                    "back": "Aerénquima, hojas sumergidas delgadas y reducción de tejidos vasculares; las hojas flotantes suelen presentar estomas en la cara adaxial."
+                },
+                {
+                    "id": "f27",
+                    "front": "¿Cómo distinguir una hoja simple de una compuesta?",
+                    "back": "La hoja simple posee un limbo continuo, aunque sea lobulado. La compuesta presenta folíolos articulados sobre un raquis; estos no tienen yema axilar propia."
+                },
+                {
+                    "id": "f28",
+                    "front": "¿Qué diferencia filotaxia opuesta y verticilada?",
+                    "back": "Opuesta: dos hojas por nudo, enfrentadas. Verticilada: tres o más hojas insertadas en un mismo nudo."
+                },
+                {
+                    "id": "f29",
+                    "front": "¿Qué diferencia una espina de un aguijón?",
+                    "back": "La espina deriva de un órgano modificado y presenta su organización vascular correspondiente. El aguijón es una proyección superficial sin conexión vascular equivalente."
+                },
+                {
+                    "id": "f30",
+                    "front": "¿Qué diferencia bulbo y cormo?",
+                    "back": "Bulbo: tallo corto acompañado por hojas modificadas de reserva. Cormo: tallo subterráneo engrosado y sólido que almacena reservas."
+                }],
+            "structures": [],
+            "cases": [{
+                "id": "c1",
+                "text": "En un corte transversal de raíz se observa una capa celular que delimita el cilindro vascular. Sus paredes presentan engrosamientos que impiden el desplazamiento libre del agua por las paredes celulares. ¿Qué estructura es y qué consecuencia produce?",
+                "options": [
+                    "Periciclo; origina directamente pelos radicales",
+                    "Endodermis con banda de Caspary; obliga al paso selectivo por membranas",
+                    "Rizodermis; forma el xilema secundario",
+                    "Corteza; produce el floema secundario"
+                ],
+                "answer": 1,
+                "feedback": "La estructura es la endodermis con banda de Caspary. La banda interrumpe la vía apoplástica y obliga al agua y a los solutos a atravesar membranas, regulando su ingreso al cilindro vascular.\n\nInterpretación:\n• Endodermis: límite interno de la corteza.\n• Banda de Caspary: barrera al transporte apoplástico.\n• Resultado: selección del ingreso de agua e iones."
+            },
+                {
+                    "id": "c2",
+                    "text": "Una raíz presenta una región central de la caliptra con amiloplastos que sedimentan cuando cambia la orientación de la planta. Posteriormente, la raíz modifica su dirección de crecimiento. ¿Qué mecanismo explica el fenómeno?",
+                    "options": [
+                        "Los amiloplastos funcionan como estatolitos y participan en la percepción de la gravedad; la redistribución de auxina modifica el crecimiento",
+                        "Los amiloplastos producen directamente raíces adventicias",
+                        "La banda de Caspary detecta la gravedad y activa el xilema",
+                        "El felógeno genera una curvatura por crecimiento secundario"
+                    ],
+                    "answer": 0,
+                    "feedback": "Se trata del gravitropismo radical positivo.\n\nSecuencia funcional:\n1. Los amiloplastos-estatolitos sedimentan en células de la columela.\n2. Se percibe la dirección de la gravedad.\n3. Se modifica la distribución de auxina.\n4. Se produce crecimiento diferencial en la región de elongación.\n5. La raíz se curva en dirección al estímulo gravitacional."
+                },
+                {
+                    "id": "c3",
+                    "text": "Se analiza una estructura subterránea de una planta. Presenta nudos, entrenudos y yemas visibles, además de tejido engrosado de almacenamiento. ¿Cuál es la identificación correcta y qué dato permite descartar una raíz tuberosa?",
+                    "options": [
+                        "Raíz napiforme; presencia de pelos radicales",
+                        "Cormo; presencia de banda de Caspary",
+                        "Tubérculo caulinar; presencia de nudos, entrenudos y yemas",
+                        "Neumatóforo; presencia de lenticelas"
+                    ],
+                    "answer": 2,
+                    "feedback": "Es un tubérculo caulinar. La presencia de nudos, entrenudos y yemas evidencia el origen caulinar. Una raíz tuberosa es una raíz engrosada que almacena reservas, pero no presenta la organización externa típica de un tallo."
+                },
+                {
+                    "id": "c4",
+                    "text": "En un corte transversal de tallo se observan haces vasculares distribuidos irregularmente por todo el tejido fundamental. La muestra corresponde a una monocotiledónea típica. ¿Qué organización vascular se identifica?",
+                    "options": [
+                        "Eustela",
+                        "Sifonostela",
+                        "Protostela",
+                        "Atactostela"
+                    ],
+                    "answer": 3,
+                    "feedback": "La atactostela se caracteriza por haces vasculares dispersos en el tejido fundamental y es frecuente en tallos de monocotiledóneas.\n\nDiferenciación:\n• Atactostela: haces dispersos.\n• Eustela: haces en anillo.\n• Protostela: cilindro vascular sólido sin médula.\n• Sifonostela: cilindro vascular alrededor de una médula."
+                },
+                {
+                    "id": "c5",
+                    "text": "Un tallo leñoso presenta un meristemo lateral que produce tejido hacia ambos lados. En el interior se acumula xilema secundario y hacia el exterior se forma floema secundario. ¿Qué meristemo está activo?",
+                    "options": [
+                        "Cámbium vascular",
+                        "Felógeno",
+                        "Meristemo apical radical",
+                        "Protodermis"
+                    ],
+                    "answer": 0,
+                    "feedback": "El cámbium vascular produce xilema secundario hacia el interior y floema secundario hacia el exterior. La acumulación de xilema secundario forma la mayor parte de la madera.\n\nNo confundir:\n• Cámbium vascular: xilema y floema secundarios.\n• Felógeno: felema y felodermis, componentes de la peridermis."
+                },
+                {
+                    "id": "c6",
+                    "text": "En una muestra vegetal se identifican caulidios, pero no se observan xilema ni floema verdaderos. También se reconocen células conductoras especializadas semejantes funcionalmente a tejidos vasculares. ¿A qué grupo corresponde?",
+                    "options": [
+                        "Gimnospermas",
+                        "Briófitos",
+                        "Eudicotiledóneas",
+                        "Monocotiledóneas"
+                    ],
+                    "answer": 1,
+                    "feedback": "Corresponde a briófitos. Sus caulidios no son tallos vasculares verdaderos. Algunos musgos presentan hidroides y leptoides, además de transporte por difusión y capilaridad."
+                },
+                {
+                    "id": "c7",
+                    "text": "En una hoja se observa una capa de células alargadas y compactas debajo de la epidermis adaxial, seguida por un tejido con grandes espacios intercelulares hacia la cara abaxial. ¿Qué organización anatómica presenta?",
+                    "options": [
+                        "Hoja isobilateral sin diferenciación del mesófilo",
+                        "Raíz con corteza y endodermis",
+                        "Hoja dorsiventral con parénquima en empalizada y esponjoso",
+                        "Tallo con médula y haces vasculares"
+                    ],
+                    "answer": 2,
+                    "feedback": "La muestra presenta una organización dorsiventral.\n\nIdentificación:\n• Cara adaxial: parénquima en empalizada, con células alargadas y compactas.\n• Cara abaxial: parénquima esponjoso, con espacios intercelulares.\n• Función: fotosíntesis e intercambio gaseoso."
+                },
+                {
+                    "id": "c8",
+                    "text": "Una planta mantiene sus estomas principalmente cerrados durante el día. Durante la noche incorpora CO₂ mediante PEPC, lo almacena en forma de malato en las vacuolas y durante el día libera CO₂ para el ciclo de Calvin. ¿Qué vía utiliza?",
+                    "options": [
+                        "C3",
+                        "C4",
+                        "C2",
+                        "CAM"
+                    ],
+                    "answer": 3,
+                    "feedback": "Es metabolismo CAM, caracterizado por separación temporal de la fijación inicial y la utilización del CO₂.\n\nSecuencia:\n1. Noche: apertura estomática y fijación inicial mediante PEPC.\n2. Formación de oxaloacetato y malato.\n3. Almacenamiento vacuolar de malato.\n4. Día: descarboxilación y liberación de CO₂.\n5. Utilización del CO₂ en el ciclo de Calvin."
+                },
+                {
+                    "id": "c9",
+                    "text": "Se comparan dos hojas. La primera presenta nervaduras principales paralelas y la segunda un nervio central prominente del que parten nervaduras secundarias que forman una red. ¿Qué tipos de venación corresponden, respectivamente?",
+                    "options": [
+                        "Paralelinervia y pinnado-reticulada",
+                        "Dicotómica y uninervia",
+                        "Actinódroma y flabelada",
+                        "Craspedódroma y camptódroma"
+                    ],
+                    "answer": 0,
+                    "feedback": "La primera hoja presenta venación paralelinervia, frecuente en monocotiledóneas. La segunda presenta venación pinnado-reticulada, frecuente en eudicotiledóneas y magnólidas."
+                },
+                {
+                    "id": "c10",
+                    "text": "Una muestra presenta un órgano laminar dividido en folíolos a lo largo de un eje central. Cada folíolo carece de yema axilar propia, mientras que la yema se localiza en la base de toda la hoja. ¿Qué tipo de hoja se identifica?",
+                    "options": [
+                        "Hoja simple lobulada",
+                        "Hoja compuesta pinnada",
+                        "Hoja uninervia",
+                        "Filodio"
+                    ],
+                    "answer": 1,
+                    "feedback": "Es una hoja compuesta pinnada. Los folíolos se insertan a lo largo del raquis y carecen de yemas axilares propias. La yema axilar se encuentra en la base de la hoja completa."
+                },
+                {
+                    "id": "c11",
+                    "text": "Una planta de ambiente seco presenta cutícula gruesa, ceras epicuticulares, criptas estomáticas, tricomas y tejido especializado en almacenar agua. ¿Qué tipo de adaptación representa?",
+                    "options": [
+                        "Adaptación hidrofítica",
+                        "Adaptación exclusivamente reproductiva",
+                        "Adaptación xerofítica",
+                        "Organización vascular de una planta C2"
+                    ],
+                    "answer": 2,
+                    "feedback": "Son adaptaciones xerofíticas. La cutícula y las ceras disminuyen la pérdida de agua; las criptas y los tricomas modifican el entorno de los estomas, y el parénquima acuífero almacena agua."
+                },
+                {
+                    "id": "c12",
+                    "text": "Se observa una planta acuática con hojas sumergidas delgadas y abundantes espacios de aire en sus tejidos. En hojas flotantes, los estomas se concentran en la superficie expuesta al aire. ¿Qué adaptación explica estas características?",
+                    "options": [
+                        "Xeromorfía con criptas estomáticas",
+                        "Crecimiento secundario con peridermis",
+                        "Formación de madera homóxila",
+                        "Adaptación hidrofítica con aerénquima y distribución estomática asociada a la flotación"
+                    ],
+                    "answer": 3,
+                    "feedback": "Las hidrófitas pueden desarrollar aerénquima, hojas sumergidas delgadas y reducción de tejidos vasculares. En hojas flotantes, los estomas suelen localizarse en la cara adaxial, expuesta al aire."
+                }],
+            "interactives": [{
+                "id": "i1",
+                "type": "dragdrop",
+                "title": "Relaciona las regiones de la raíz con su función",
+                "terms": [
+                    "Caliptra",
+                    "Rizodermis",
+                    "Endodermis",
+                    "Periciclo",
+                    "Cilindro vascular"
+                ],
+                "targets": [
+                    "Protección del ápice radical y percepción gravitacional",
+                    "Absorción mediante pelos radicales",
+                    "Control selectivo del ingreso al tejido vascular",
+                    "Origen de raíces laterales",
+                    "Conducción de agua, minerales y sustancias orgánicas"
+                ],
+                "answerMap": {
+                    "Caliptra": "Protección del ápice radical y percepción gravitacional",
+                    "Rizodermis": "Absorción mediante pelos radicales",
+                    "Endodermis": "Control selectivo del ingreso al tejido vascular",
+                    "Periciclo": "Origen de raíces laterales",
+                    "Cilindro vascular": "Conducción de agua, minerales y sustancias orgánicas"
+                }
+            },
+                {
+                    "id": "i2",
+                    "type": "complete",
+                    "title": "Completa la secuencia del transporte radial en la raíz",
+                    "prompt": "La banda de ________ se encuentra en la endodermis e interrumpe la vía ________, obligando al agua y a los solutos a atravesar ________ antes de ingresar al cilindro vascular.",
+                    "answer": "Caspary; apoplástica; membranas"
+                },
+                {
+                    "id": "i3",
+                    "type": "dragdrop",
+                    "title": "Relaciona las estelas con su organización",
+                    "terms": [
+                        "Protostela",
+                        "Sifonostela",
+                        "Eustela",
+                        "Atactostela",
+                        "Plectostela"
+                    ],
+                    "targets": [
+                        "Cilindro vascular sólido sin médula",
+                        "Cilindro vascular alrededor de una médula",
+                        "Haces vasculares dispuestos en anillo",
+                        "Haces vasculares dispersos en el tejido fundamental",
+                        "Variante de protostela con placas o bandas de xilema"
+                    ],
+                    "answerMap": {
+                        "Protostela": "Cilindro vascular sólido sin médula",
+                        "Sifonostela": "Cilindro vascular alrededor de una médula",
+                        "Eustela": "Haces vasculares dispuestos en anillo",
+                        "Atactostela": "Haces vasculares dispersos en el tejido fundamental",
+                        "Plectostela": "Variante de protostela con placas o bandas de xilema"
+                    }
+                },
+                {
+                    "id": "i4",
+                    "type": "complete",
+                    "title": "Completa la producción de tejidos secundarios",
+                    "prompt": "El cámbium vascular produce ________ secundario hacia el interior y ________ secundario hacia el exterior. El felógeno forma ________ hacia afuera y ________ hacia adentro.",
+                    "answer": "xilema; floema; felema; felodermis"
+                },
+                {
+                    "id": "i5",
+                    "type": "dragdrop",
+                    "title": "Asocia cada grupo vegetal con su diagnóstico anatómico",
+                    "terms": [
+                        "Briófitos",
+                        "Licófitos",
+                        "Helechos",
+                        "Gimnospermas",
+                        "Monocotiledóneas",
+                        "Eudicotiledóneas"
+                    ],
+                    "targets": [
+                        "Caulidios, hidroides y leptoides en algunos musgos",
+                        "Protostela y xilema primario generalmente exarco",
+                        "Sifonostela frecuente y xilema mesarco",
+                        "Eustela, xilema endarco y madera principalmente de traqueidas",
+                        "Atactostela y haces generalmente cerrados",
+                        "Eustela y haces generalmente abiertos o bicolaterales"
+                    ],
+                    "answerMap": {
+                        "Briófitos": "Caulidios, hidroides y leptoides en algunos musgos",
+                        "Licófitos": "Protostela y xilema primario generalmente exarco",
+                        "Helechos": "Sifonostela frecuente y xilema mesarco",
+                        "Gimnospermas": "Eustela, xilema endarco y madera principalmente de traqueidas",
+                        "Monocotiledóneas": "Atactostela y haces generalmente cerrados",
+                        "Eudicotiledóneas": "Eustela y haces generalmente abiertos o bicolaterales"
+                    }
+                },
+                {
+                    "id": "i6",
+                    "type": "dragdrop",
+                    "title": "Relaciona los tejidos foliares con su función",
+                    "terms": [
+                        "Cutícula",
+                        "Epidermis",
+                        "Parénquima en empalizada",
+                        "Parénquima esponjoso",
+                        "Xilema",
+                        "Floema",
+                        "Estomas"
+                    ],
+                    "targets": [
+                        "Reduce la pérdida de agua y protege la superficie",
+                        "Protección externa y delimitación del órgano",
+                        "Tejido fotosintético con células alargadas y compactas",
+                        "Facilita la difusión gaseosa mediante espacios intercelulares",
+                        "Conduce agua y minerales",
+                        "Transporta sustancias orgánicas",
+                        "Regulan el intercambio gaseoso y la pérdida de vapor de agua"
+                    ],
+                    "answerMap": {
+                        "Cutícula": "Reduce la pérdida de agua y protege la superficie",
+                        "Epidermis": "Protección externa y delimitación del órgano",
+                        "Parénquima en empalizada": "Tejido fotosintético con células alargadas y compactas",
+                        "Parénquima esponjoso": "Facilita la difusión gaseosa mediante espacios intercelulares",
+                        "Xilema": "Conduce agua y minerales",
+                        "Floema": "Transporta sustancias orgánicas",
+                        "Estomas": "Regulan el intercambio gaseoso y la pérdida de vapor de agua"
+                    }
+                },
+                {
+                    "id": "i7",
+                    "type": "dragdrop",
+                    "title": "Diferencia las vías fotosintéticas",
+                    "terms": [
+                        "C3",
+                        "C4",
+                        "C2",
+                        "CAM"
+                    ],
+                    "targets": [
+                        "RuBisCO y producción inicial de 3-fosfoglicerato",
+                        "PEPC, oxaloacetato y separación espacial mediante anatomía Kranz",
+                        "Lanzadera fotorrespiratoria de glicina y compartimentación del complejo GDC",
+                        "Fijación nocturna, almacenamiento vacuolar de malato y descarboxilación diurna"
+                    ],
+                    "answerMap": {
+                        "C3": "RuBisCO y producción inicial de 3-fosfoglicerato",
+                        "C4": "PEPC, oxaloacetato y separación espacial mediante anatomía Kranz",
+                        "C2": "Lanzadera fotorrespiratoria de glicina y compartimentación del complejo GDC",
+                        "CAM": "Fijación nocturna, almacenamiento vacuolar de malato y descarboxilación diurna"
+                    }
+                },
+                {
+                    "id": "i8",
+                    "type": "complete",
+                    "title": "Completa la secuencia del metabolismo CAM",
+                    "prompt": "Durante la noche, la enzima ________ fija inicialmente CO₂ y se forma ________, que puede convertirse en ________ y almacenarse en las vacuolas. Durante el día, este compuesto se ________ para suministrar CO₂ al ciclo de Calvin.",
+                    "answer": "PEPC; oxaloacetato; malato; descarboxila"
+                },
+                {
+                    "id": "i9",
+                    "type": "dragdrop",
+                    "title": "Relaciona las modificaciones foliares con su función",
+                    "terms": [
+                        "Filodio",
+                        "Zarcillo foliar",
+                        "Espina foliar",
+                        "Ascidio",
+                        "Pulvínulo",
+                        "Bráctea coloreada"
+                    ],
+                    "targets": [
+                        "Pecíolo aplanado que asume la función fotosintética del limbo",
+                        "Sujeción y trepa",
+                        "Defensa mecánica frente a herbívoros",
+                        "Captura y digestión de presas",
+                        "Movimientos násticos por cambios de turgencia",
+                        "Atracción visual y protección de estructuras reproductivas"
+                    ],
+                    "answerMap": {
+                        "Filodio": "Pecíolo aplanado que asume la función fotosintética del limbo",
+                        "Zarcillo foliar": "Sujeción y trepa",
+                        "Espina foliar": "Defensa mecánica frente a herbívoros",
+                        "Ascidio": "Captura y digestión de presas",
+                        "Pulvínulo": "Movimientos násticos por cambios de turgencia",
+                        "Bráctea coloreada": "Atracción visual y protección de estructuras reproductivas"
+                    }
+                },
+                {
+                    "id": "i10",
+                    "type": "complete",
+                    "title": "Identifica la filotaxia según el número de hojas por nudo",
+                    "prompt": "Una hoja por nudo y disposición alternada: ________. Dos hojas enfrentadas por nudo: ________. Tres o más hojas por nudo: ________. Una hoja por nudo con inserción helicoidal: ________.",
+                    "answer": "alterna; opuesta; verticilada; espiralada"
+                }],
+            "maps": {
+                "raiz": "RAÍZ\n├─ Organización longitudinal\n│  ├─ Caliptra o cofia\n│  │  ├─ Protección del ápice\n│  │  └─ Columela → amiloplastos-estatolitos → percepción de gravedad\n│  ├─ Meristemo apical radical (RAM)\n│  │  ├─ Centro quiescente\n│  │  └─ División celular\n│  └─ Zonas de crecimiento\n│     ├─ Elongación\n│     └─ Diferenciación y maduración\n├─ Anatomía transversal\n│  ├─ Rizodermis → tricoblastos y pelos radicales\n│  ├─ Corteza → parénquima\n│  ├─ Endodermis → banda de Caspary\n│  ├─ Periciclo → raíces laterales\n│  └─ Cilindro vascular\n│     ├─ Xilema → agua y minerales\n│     └─ Floema → sustancias orgánicas\n├─ Transporte radial\n│  ├─ Apoplástico\n│  ├─ Simplástico\n│  ├─ Transmembrana\n│  └─ Banda de Caspary → selección del ingreso\n├─ Desarrollo\n│  ├─ Crecimiento primario → longitud\n│  ├─ Crecimiento secundario → grosor\n│  ├─ Cámbium → xilema y floema secundarios\n│  └─ Felógeno → peridermis\n├─ Gravitropismo\n│  ├─ Estatolitos en columela\n│  ├─ Redistribución de auxina\n│  └─ Crecimiento diferencial → curvatura\n└─ Morfología y adaptaciones\n   ├─ Sistemas pivotante y fasciculado\n   ├─ Raíces embrionarias, laterales y adventicias\n   ├─ Almacenamiento → napiformes, fusiformes y tuberosas\n   ├─ Soporte → zancudas y fúlcreas\n   ├─ Intercambio gaseoso → neumatóforos\n   ├─ Epífitas → velamen radicum\n   └─ Haustorios, nódulos y micorrizas",
+                "tallo": "TALLO\n├─ Organización externa\n│  ├─ Nudos → inserción de hojas y ramas\n│  ├─ Entrenudos → elongación del eje\n│  ├─ Yema apical → crecimiento longitudinal\n│  └─ Yemas axilares → ramificación\n├─ Desarrollo primario\n│  ├─ Meristemo apical del vástago (MAV)\n│  ├─ Protodermis → epidermis\n│  ├─ Procámbium → xilema y floema primarios\n│  └─ Meristema fundamental → corteza, médula y radios\n├─ Anatomía\n│  ├─ Epidermis\n│  ├─ Corteza\n│  ├─ Sistema vascular\n│  │  ├─ Xilema → agua y minerales\n│  │  └─ Floema → sustancias orgánicas\n│  └─ Médula y radios medulares\n├─ Haces vasculares\n│  ├─ Colaterales\n│  ├─ Bicolaterales\n│  ├─ Anficribales\n│  ├─ Anfivasales\n│  ├─ Abiertos → con cámbium\n│  └─ Cerrados → sin cámbium\n├─ Estelas\n│  ├─ Protostela → cilindro sólido sin médula\n│  │  ├─ Actinostela\n│  │  └─ Plectostela\n│  ├─ Sifonostela → cilindro alrededor de médula\n│  │  ├─ Solenostela\n│  │  └─ Dictiostela\n│  ├─ Eustela → haces en anillo\n│  ├─ Atactostela → haces dispersos\n│  └─ Polistela → varios cilindros vasculares\n├─ Crecimiento secundario\n│  ├─ Cámbium vascular\n│  │  ├─ Xilema secundario → madera\n│  │  └─ Floema secundario\n│  ├─ Albura → conducción\n│  ├─ Duramen → soporte\n│  ├─ Anillos → crecimiento y dendrocronología\n│  └─ Felógeno → felema + felodermis → peridermis\n├─ Morfología\n│  ├─ Macroblastos y braquiblastos\n│  ├─ Ortótropos y plagiótropos\n│  ├─ Ramificación dicotómica\n│  ├─ Ramificación monopodial\n│  └─ Ramificación simpodial y pseudodicotómica\n└─ Modificaciones caulinares\n   ├─ Subterráneas → rizoma, tubérculo, bulbo y cormo\n   ├─ Aéreas → estolón, cladodio y filocladio\n   ├─ Defensa → espinas caulinares\n   └─ Sujeción → zarcillos y pseudobulbos",
+                "grupos_vegetales": "TALLO EN LOS GRUPOS VEGETALES\n├─ Briófitos\n│  ├─ Caulidios sin xilema y floema verdaderos\n│  ├─ Hidroides → conducción de agua\n│  ├─ Leptoides → conducción de sustancias orgánicas\n│  └─ Difusión y capilaridad\n├─ Licófitos\n│  ├─ Protostela\n│  ├─ Xilema primario generalmente exarco\n│  ├─ Actinostela y plectostela\n│  ├─ Ramificación dicotómica isótoma o anisótoma\n│  └─ Isoetes → excepción con meristema lateral\n├─ Helechos\n│  ├─ Rizomas frecuentes\n│  ├─ Sifonostela alrededor de médula\n│  ├─ Xilema frecuentemente mesarco\n│  └─ Generalmente sin crecimiento secundario típico\n├─ Equisetos\n│  ├─ Nudos y entrenudos\n│  ├─ Hojas reducidas\n│  └─ Hojas verticiladas → vainas\n├─ Gimnospermas\n│  ├─ Eustela y xilema endarco\n│  ├─ Cámbium bifacial\n│  ├─ Madera homóxila → traqueidas\n│  ├─ Células cribosas y albuminosas\n│  └─ Canales resiníferos posibles\n├─ Monocotiledóneas\n│  ├─ Atactostela\n│  ├─ Haces generalmente cerrados\n│  ├─ Tejido fundamental poco diferenciado\n│  └─ Engrosamiento secundario atípico en ciertos grupos\n└─ Eudicotiledóneas\n   ├─ Eustela\n   ├─ Haces abiertos o bicolaterales\n   ├─ Cámbium fascicular e interfascicular\n   ├─ Madera y floema secundarios\n   └─ Peridermis y crecimiento secundario frecuente\n\nDIAGNÓSTICO RÁPIDO\n├─ Haces dispersos → atactostela → monocotiledóneas típicas\n├─ Haces en anillo → eustela → gimnospermas y eudicotiledóneas\n├─ Cilindro sólido sin médula → protostela\n└─ Cilindro vascular alrededor de médula → sifonostela",
+                "hoja_anatomia": "HOJA\n├─ Funciones\n│  ├─ Fotosíntesis\n│  ├─ Intercambio gaseoso\n│  └─ Regulación hídrica\n├─ Partes externas\n│  ├─ Base foliar\n│  ├─ Estípulas\n│  ├─ Pecíolo\n│  ├─ Limbo o lámina\n│  ├─ Haz o cara adaxial\n│  └─ Envés o cara abaxial\n├─ Anatomía\n│  ├─ Cutícula → protección y reducción de pérdida de agua\n│  ├─ Epidermis adaxial y abaxial\n│  ├─ Estomas → intercambio gaseoso y transpiración\n│  ├─ Mesófilo\n│  │  ├─ Empalizada → fotosíntesis\n│  │  └─ Esponjoso → espacios intercelulares\n│  └─ Haces vasculares\n│     ├─ Xilema → cara adaxial\n│     ├─ Floema → cara abaxial\n│     └─ Vaina del haz\n├─ Polaridad\n│  ├─ Adaxial → orientada hacia el vástago\n│  ├─ Abaxial → opuesta al vástago\n│  ├─ Dorsiventral → tejidos diferenciados\n│  └─ Isobilateral → organización semejante en ambas caras\n├─ Tipos funcionales\n│  ├─ Cotiledones → hojas embrionarias\n│  ├─ Nomófilos → hojas vegetativas\n│  ├─ Catáfilos → protección y reserva\n│  ├─ Hipsofilos → asociados a regiones reproductivas\n│  ├─ Antófilos → piezas florales\n│  └─ Profilos y bractéolas → protección y acompañamiento\n├─ Modificaciones\n│  ├─ Filodio → pecíolo aplanado\n│  ├─ Zarcillo foliar → trepa\n│  ├─ Espina foliar → defensa\n│  ├─ Ascidio → captura de presas\n│  ├─ Tentáculos glandulares → captura y digestión\n│  └─ Trampa articulada → captura rápida\n└─ Adaptaciones ecológicas\n   ├─ Xerófitas → cutícula gruesa, ceras y criptas estomáticas\n   ├─ Tricomas → protección y modificación del microambiente\n   ├─ Parénquima acuífero → almacenamiento de agua\n   ├─ Hidrófitas → aerénquima y hojas sumergidas delgadas\n   └─ Hojas flotantes → estomas generalmente adaxiales",
+                "fotosintesis": "VÍAS FOTOSINTÉTICAS\n├─ C3\n│  ├─ Enzima inicial → RuBisCO\n│  ├─ Ciclo de Calvin\n│  ├─ Primer producto estable → 3-fosfoglicerato\n│  ├─ Sin separación espacial obligatoria\n│  └─ Fotorrespiración asociada a la actividad oxigenasa de RuBisCO\n├─ C4\n│  ├─ Fijación inicial → PEPC\n│  ├─ Producto inicial → oxaloacetato\n│  ├─ Conversión a compuestos de cuatro carbonos\n│  ├─ Separación espacial\n│  ├─ Anatomía Kranz\n│  └─ Concentración de CO₂ en células de la vaina del haz\n├─ C2\n│  ├─ Lanzadera fotorrespiratoria de glicina\n│  ├─ Complejo GDC\n│  ├─ Compartimentación celular\n│  └─ Actividad GDC restringida en la vaina del haz\n└─ CAM\n   ├─ Separación temporal\n   ├─ Noche\n   │  ├─ Estomas abiertos principalmente\n   │  ├─ PEPC fija CO₂\n   │  ├─ Oxaloacetato → malato\n   │  └─ Almacenamiento vacuolar\n   └─ Día\n      ├─ Estomas generalmente cerrados\n      ├─ Descarboxilación del malato\n      └─ CO₂ disponible para el ciclo de Calvin\n\nCLAVE COMPARATIVA\n├─ C3 → RuBisCO y 3-fosfoglicerato\n├─ C4 → PEPC y separación espacial\n├─ C2 → lanzadera de glicina y GDC\n└─ CAM → fijación nocturna y descarboxilación diurna",
+                "morfologia_foliar": "MORFOLOGÍA FOLIAR\n├─ Partes y apéndices\n│  ├─ Base foliar → inserción en el nudo\n│  ├─ Pecíolo → conexión con el tallo\n│  ├─ Limbo → superficie expandida\n│  ├─ Raquis → eje de hoja compuesta\n│  ├─ Peciolículo → soporte del folíolo\n│  ├─ Folíolo → unidad de hoja compuesta\n│  ├─ Pulvínulo → movimiento por turgencia\n│  └─ Estípulas y estipelas → apéndices basales\n├─ Estípulas\n│  ├─ Laterales\n│  ├─ Adnatas\n│  ├─ Intrapeciolares\n│  ├─ Foliáceas\n│  ├─ Interpeciolares\n│  └─ Ocreadas\n├─ Venación\n│  ├─ Uninervia\n│  ├─ Pinnado-reticulada\n│  ├─ Paralelinervia\n│  ├─ Dicotómica\n│  ├─ Craspedódroma → secundarias alcanzan el margen\n│  ├─ Camptódroma → secundarias se conectan antes del margen\n│  ├─ Campilódroma → nervios basales arqueados y convergentes\n│  ├─ Actinódroma → varios nervios primarios desde un punto\n│  ├─ Marginal\n│  └─ Flabelada → nervios en abanico\n├─ Filotaxia\n│  ├─ Alterna → una hoja por nudo\n│  ├─ Opuesta → dos hojas por nudo\n│  ├─ Verticilada → tres o más por nudo\n│  └─ Espiralada → inserción helicoidal\n├─ División del limbo\n│  ├─ Simple → limbo continuo, entero o lobulado\n│  └─ Compuesta → folíolos sobre raquis\n│     ├─ Pinnada\n│     ├─ Paripinnada → sin folíolo terminal\n│     ├─ Imparipinnada → con folíolo terminal\n│     ├─ Bipinnada → raquis con raquillas\n│     └─ Tripinnada → tres grados de división\n├─ Modificaciones defensivas y funcionales\n│  ├─ Espina foliar\n│  ├─ Espina estipular\n│  ├─ Espina peciolar\n│  ├─ Espina caulinar\n│  ├─ Aguijón → proyección superficial\n│  ├─ Zarcillo → sujeción\n│  ├─ Filodio → fotosíntesis\n│  └─ Ascidio y trampas → captura de presas\n└─ Criterios de descripción\n   ├─ Forma y división del limbo\n   ├─ Margen y ápice\n   ├─ Base y pecíolo\n   ├─ Venación y filotaxia\n   ├─ Consistencia\n   └─ Indumento y tricomas"
+            }
+        };
+
+        /* --------------------------
+Utilidades y renderizado
+-------------------------- */
+        function ensureDbShape() {
+            DB.quizTopics = Array.isArray(DB.quizTopics) ? DB.quizTopics: [];
+            DB.questions = Array.isArray(DB.questions) ? DB.questions: [];
+            DB.glossary = Array.isArray(DB.glossary) ? DB.glossary: [];
+            DB.flashcards = Array.isArray(DB.flashcards) ? DB.flashcards: [];
+            DB.structures = Array.isArray(DB.structures) ? DB.structures: [];
+            DB.cases = Array.isArray(DB.cases) ? DB.cases: [];
+            DB.interactives = Array.isArray(DB.interactives) ? DB.interactives: [];
+            DB.maps = DB.maps && typeof DB.maps === 'object' ? DB.maps: {};
+        }
+
+        function escapeHtml(s) {
+            if (!s) return ''; return String(s).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+        }
+
+        /* render glossary */
+        function renderGloss() {
+            const list = document.getElementById('glossList');
+            list.innerHTML = '';
+
+            const glossary = Array.isArray(DB.glossary) ? DB.glossary: [];
+            const query = normalizeText(document.getElementById('glossSearch').value || '');
+
+            glossary
+            .filter(item => {
+                const term = normalizeText(item.term);
+                const def = normalizeText(item.def);
+                return !query || term.includes(query) || def.includes(query);
+            })
+            .forEach((g, idx) => {
+                const itemId = g.id || `gloss-${idx}`;
+
+                const div = document.createElement('div');
+                div.className = 'relative p-2 border-b';
+
+                div.innerHTML = `
+                <strong>${escapeHtml(g.term)}</strong>
+                <p class="text-xs text-gray-700 pr-14">${escapeHtml(g.def)}</p>
+
+                <button data-i="${idx}" class="edit-gloss text-blue-600 text-xs mt-1">
+                Editar
+                </button>
+
+                <div class="absolute bottom-1 right-1 flex gap-1">
+                <button data-section="gloss" data-id="${itemId}" data-correct="true" class="score-btn text-xs">✅</button>
+                <button data-section="gloss" data-id="${itemId}" data-correct="false" class="score-btn text-xs">❌</button>
+                </div>
+                `;
+
+                list.appendChild(div);
+            });
+
+            list.querySelectorAll('.edit-gloss').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const i = parseInt(btn.dataset.i);
+                    document.getElementById('termInput').value = DB.glossary[i].term || '';
+                    document.getElementById('defInput').value = DB.glossary[i].def || '';
+                    DB.glossary.splice(i, 1);
+                    renderGloss();
+                    saveToLocal();
+                    updateDashboard();
+                });
+            });
+
+            list.querySelectorAll('.score-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    markItem(
+                        btn.dataset.section,
+                        btn.dataset.id,
+                        btn.dataset.correct === 'true'
+                    );
+                });
+            });
+
+            document.getElementById('glossJSON').value = JSON.stringify(glossary, null, 2);
+        }
+        document.getElementById('glossSearch').addEventListener('input', renderGloss);
+
+        /* render flashcards */
+        function renderFlashcards() {
+            const cont = document.getElementById('flashContainer');
+            cont.innerHTML = '';
+
+            const flashcards = Array.isArray(DB.flashcards) ? DB.flashcards: [];
+
+            flashcards.forEach((f, i) => {
+                const itemId = f.id || `flash-${i}`;
+
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style.width = '240px';
+
+                card.innerHTML = `
+                <div class="card-inner" data-index="${i}">
+                <div class="card-front">
+                ${escapeHtml(f.front)}
+                </div>
+
+                <div class="card-back relative">
+                <span class="pr-14">${escapeHtml(f.back)}</span>
+
+                <div class="absolute bottom-1 right-1 flex gap-1">
+                <button data-section="flash" data-id="${itemId}" data-correct="true" class="score-btn text-xs">✅</button>
+                <button data-section="flash" data-id="${itemId}" data-correct="false" class="score-btn text-xs">❌</button>
+                </div>
+                </div>
+                </div>
+                `;
+
+                card.querySelector('.card-inner').addEventListener('click', e => {
+                    const inner = e.currentTarget;
+                    inner.style.transform = inner.style.transform ? '': 'rotateY(180deg)';
+                });
+
+                card.querySelectorAll('.score-btn').forEach(btn => {
+                    btn.addEventListener('click', e => {
+                        e.stopPropagation();
+
+                        markItem(
+                            btn.dataset.section,
+                            btn.dataset.id,
+                            btn.dataset.correct === 'true'
+                        );
+                    });
+                });
+
+                cont.appendChild(card);
+            });
+
+            document.getElementById('flashJSON').value = JSON.stringify(flashcards, null, 2);
+        }
+
+        /* render structures */
+        function renderStructures() {
+            const area = document.getElementById('structuresArea'); area.innerHTML = '';
+            const structures = Array.isArray(DB.structures) ? DB.structures: [];
+            structures.forEach((s, idx)=> {
+                const options = Array.isArray(s.options) ? s.options: [];
+                const wrap = document.createElement('div'); wrap.className = 'p-3 border rounded';
+                wrap.innerHTML = `<div><h4 class="font-semibold">${idx+1}. ${escapeHtml(s.title)}</h4><div class="text-sm mt-1">Imagen: <a class="link-img" target="_blank" href="${s.img}">${s.img}</a></div><div class="mt-2" id="opts-${idx}"></div></div>`;
+                area.appendChild(wrap);
+                const optsDiv = wrap.querySelector(`#opts-${idx}`);
+                options.forEach((o, i)=> {
+                    const radio = document.createElement('label'); radio.className = 'mr-3 block'; radio.innerHTML = `<input type="radio" name="struct_${idx}" value="${i}"> ${escapeHtml(o)}`; optsDiv.appendChild(radio);
+                });
+                const btn = document.createElement('button'); btn.className = 'mt-2 px-2 py-1 bg-amber-500 text-white rounded'; btn.textContent = 'Verificar';
+                btn.addEventListener('click', () => {
+                    const sel = wrap.querySelector(`input[name="struct_${idx}"]:checked`);
+
+                    if (!sel) {
+                        alert('Selecciona opción');
+                        return;
+                    }
+
+                    const itemId = s.id || `structure-${idx}`;
+
+                    if (parseInt(sel.value) === s.answer) {
+                        alert('✅ Correcto\n' + (s.explain || ''));
+                        markItem('structures', itemId, true);
+                    } else {
+                        alert('❌ Incorrecto\n' + (s.explain || ''));
+                        markItem('structures', itemId, false);
+                    }
+                });
+                wrap.appendChild(btn);
+            });
+            document.getElementById('structuresJSON').value = JSON.stringify(structures, null, 2);
+        }
+
+        /* render cases */
+        function renderCases() {
+            const area = document.getElementById('casesArea'); area.innerHTML = '';
+            const casesList = Array.isArray(DB.cases) ? DB.cases: [];
+            casesList.forEach((c,
+                idx)=> {
+                const options = Array.isArray(c.options) ? c.options: [];
+                const wrap = document.createElement('div'); wrap.className = 'p-3 border rounded mb-3';
+                wrap.innerHTML = `<div><h4 class="font-semibold">Caso ${idx+1}</h4><p class="mt-1">${escapeHtml(c.text)}</p><div class="mt-2" id="caseOpts${idx}"></div></div>`;
+                area.appendChild(wrap);
+                const optsDiv = wrap.querySelector(`#caseOpts${idx}`);
+                options.forEach((o, i)=> {
+                    const label = document.createElement('label'); label.className = 'block'; label.innerHTML = `<input type="radio" name="case_${idx}" value="${i}"> ${escapeHtml(o)}`; optsDiv.appendChild(label);
+                });
+                const btn = document.createElement('button'); btn.className = 'mt-2 px-2 py-1 bg-indigo-600 text-white rounded'; btn.textContent = 'Responder';
+                btn.addEventListener('click',
+                    () => {
+                        const sel = wrap.querySelector(`input[name="case_${idx}"]:checked`);
+
+                        if (!sel) {
+                            alert('Selecciona opción');
+                            return;
+                        }
+
+                        const itemId = c.id || `case-${idx}`;
+
+                        if (parseInt(sel.value) === c.answer) {
+                            alert('✅ Correcto\n' + (c.feedback || ''));
+                            markItem('cases', itemId, true);
+                        } else {
+                            alert('❌ Incorrecto\n' + (c.feedback || ''));
+                            markItem('cases', itemId, false);
+                        }
+                    });
+                wrap.appendChild(btn);
+            });
+            document.getElementById('casesJSON').value = JSON.stringify(casesList, null, 2);
+        }
+
+        /* render interactives with correct drag/drop handling */
+        function renderInteratives() {
+            const area = document.getElementById('interactiveArea'); area.innerHTML = '';
+            (Array.isArray(DB.interactives) ? DB.interactives: []).forEach((it,
+                idx)=> {
+                const block = document.createElement('div'); block.className = 'p-3 border rounded';
+                block.innerHTML = `<h4 class="font-semibold">${idx+1}. ${escapeHtml(it.title || it.id)}</h4>`;
+                if (it.type === 'dragdrop') {
+                    const terms = Array.isArray(it.terms) ? it.terms: [];
+                    const targets = Array.isArray(it.targets) ? it.targets: [];
+                    const termsDiv = document.createElement('div'); termsDiv.className = 'mt-2 flex gap-2 flex-wrap';
+                    terms.forEach((t, i)=> {
+                        const d = document.createElement('div'); d.className = 'draggable'; d.id = `term-${idx}-${i}`; d.draggable = true; d.textContent = t;
+                        d.addEventListener('dragstart', e => {
+                            e.dataTransfer.setData('text/plain', d.id); e.dataTransfer.effectAllowed = 'move';
+                        });
+                        termsDiv.appendChild(d);
+                    });
+                    const targetsDiv = document.createElement('div'); targetsDiv.className = 'mt-3 grid grid-cols-1 gap-2';
+                    targets.forEach((tg, i)=> {
+                        const dz = document.createElement('div'); dz.className = 'dropzone'; dz.id = `target-${idx}-${i}`;
+                        dz.dataset.target = tg;
+                        const label = document.createElement('span');
+                        label.className = 'dropzone-label';
+                        label.textContent = tg;
+                        dz.appendChild(label);
+                        dz.addEventListener('dragover', e => {
+                            e.preventDefault(); e.dataTransfer.dropEffect = 'move'; dz.style.backgroundColor = '#f8fafc';
+                        });
+                        dz.addEventListener('dragleave', e => {
+                            dz.style.backgroundColor = '';
+                        });
+                        dz.addEventListener('drop', e => {
+                            e.preventDefault();
+                            dz.style.backgroundColor = '';
+                            const id = e.dataTransfer.getData('text/plain');
+                            const el = document.getElementById(id);
+                            if (!el) return;
+                            // append (this move automatically removes from previous parent)
+                            dz.appendChild(el);
+                            // compute trimmed texts
+                            const childText = el.textContent.trim();
+                            const expected = normalizeText((it.answerMap && it.answerMap[childText]) ? it.answerMap[childText]: '');
+                            const zoneText = normalizeText(dz.dataset.target || label.textContent || '');
+                            if (expected && expected === zoneText) {
+                                dz.style.borderColor = '#16a34a';
+                                dz.style.backgroundColor = '#ecfdf5';
+                                dz.dataset.correct = 'true';
+                            } else {
+                                dz.style.borderColor = '#dc2626';
+                                dz.style.backgroundColor = '#fff1f2';
+                                dz.dataset.correct = 'false';
+                            }
+                            // For other zones: if empty reset; if they have children, re-evaluate them
+                            targets.forEach((ot, j)=> {
+                                const otherDz = document.getElementById(`target-${idx}-${j}`);
+                                if (!otherDz) return;
+                                if (otherDz === dz) return;
+                                // remove any duplicate of the moved element (safety)
+                                Array.from(otherDz.querySelectorAll('.draggable')).forEach(ch => {
+                                    if (ch.id === el.id) otherDz.removeChild(ch);
+                                });
+                                if (otherDz.querySelectorAll('.draggable').length === 0) {
+                                    otherDz.style.borderColor = '#94a3b8'; otherDz.style.backgroundColor = ''; delete otherDz.dataset.correct;
+                                } else {
+                                    const rem = otherDz.querySelector('.draggable');
+                                    if (rem) {
+                                        const remText = rem.textContent.trim();
+                                        const remExp = normalizeText((it.answerMap && it.answerMap[remText]) ? it.answerMap[remText]: '');
+                                        const otherLabel = otherDz.querySelector('.dropzone-label');
+                                        const otherZoneText = normalizeText(otherDz.dataset.target || (otherLabel ? otherLabel.textContent: ''));
+                                        if (remExp && remExp === otherZoneText) {
+                                            otherDz.style.borderColor = '#16a34a'; otherDz.style.backgroundColor = '#ecfdf5'; otherDz.dataset.correct = 'true';
+                                        } else {
+                                            otherDz.style.borderColor = '#dc2626'; otherDz.style.backgroundColor = '#fff1f2'; otherDz.dataset.correct = 'false';
+                                        }
+                                    }
+                                }
+                            });
+                        });
+                        targetsDiv.appendChild(dz);
+                    });
+                    block.appendChild(termsDiv);
+                    block.appendChild(targetsDiv);
+
+                    const checkBtn = document.createElement('button');
+                    checkBtn.className = 'mt-2 px-2 py-1 bg-amber-500 text-white rounded';
+                    checkBtn.textContent = 'Verificar actividad';
+
+                    checkBtn.addEventListener('click', () => {
+                        const itemId = it.id || `interactive-${idx}`;
+                        const zones = block.querySelectorAll('.dropzone');
+                        const allCorrect = Array.from(zones).length > 0 &&
+                        Array.from(zones).every(zone => zone.dataset.correct === 'true');
+
+                        if (allCorrect) {
+                            alert('✅ Actividad correcta');
+                            markItem('interactive', itemId, true);
+                        } else {
+                            alert('❌ Revisa la actividad.');
+                            markItem('interactive', itemId, false);
+                        }
+                    });
+
+                    block.appendChild(checkBtn);
+                } else if (it.type === 'complete') {
+                    const q = document.createElement('div'); q.innerHTML = `<div class="mt-2">${escapeHtml(it.prompt || '')}</div><input class="mt-2 border rounded p-1" id="fill-${idx}">`;
+                    const btn = document.createElement('button'); btn.className = 'mt-2 px-2 py-1 bg-amber-500 text-white rounded'; btn.textContent = 'Verificar';
+                    btn.addEventListener('click', () => {
+                        const user = document.getElementById(`fill-${idx}`).value.trim();
+                        const itemId = it.id || `interactive-${idx}`;
+
+                        if (normalizeText(user) === normalizeText(it.answer || '')) {
+                            alert('✅ Correcto');
+                            markItem('interactive', itemId, true);
+                        } else {
+                            alert('❌ Incorrecto.');
+                            markItem('interactive', itemId, false);
+                        }
+                    });
+                    block.appendChild(q); block.appendChild(btn);
+                }
+                area.appendChild(block);
+            });
+            document.getElementById('interJSON').value = JSON.stringify(DB.interactives, null, 2);
+        }
+
+        /* render maps */
+        function renderMaps() {
+            const disp = document.getElementById('mapsDisplay');
+            disp.innerHTML = '';
+
+            Object.entries(DB.maps || {}).forEach(([k,
+                v]) => {
+                const itemId = `map-${k}`;
+
+                const div = document.createElement('div');
+                div.className = 'relative bg-gray-50 p-3 rounded';
+
+                div.innerHTML = `
+                <h3 class="font-semibold capitalize">${escapeHtml(k)}</h3>
+                <pre class="map pr-14">${escapeHtml(v)}</pre>
+
+                <div class="absolute bottom-1 right-1 flex gap-1">
+                <button data-section="maps" data-id="${itemId}" data-correct="true" class="score-btn text-xs">✅</button>
+                <button data-section="maps" data-id="${itemId}" data-correct="false" class="score-btn text-xs">❌</button>
+                </div>
+                `;
+
+                div.querySelectorAll('.score-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        markItem(
+                            btn.dataset.section,
+                            btn.dataset.id,
+                            btn.dataset.correct === 'true'
+                        );
+                    });
+                });
+
+                disp.appendChild(div);
+            });
+
+            document.getElementById('mapsJSON').value = JSON.stringify(DB.maps || {}, null, 2);
+        }
+
+        /* Save/load DB to localStorage */
+        function saveToLocal() {
+            localStorage.setItem('DB_biocel', JSON.stringify(DB));
+        }
+        function loadFromLocal() {
+            const raw = localStorage.getItem('DB_biocel');
+            if (raw) {
+                try {
+                    DB = JSON.parse(raw);
+                } catch(e) {
+                    console.error(e);
+                }
+            }
+            ensureDbShape();
+            renderAll();
+        }
+        function renderAll() {
+            ensureDbShape();
+            renderQuizTopics();
+            renderGloss();
+            renderFlashcards();
+            renderStructures();
+            renderCases();
+            renderInteratives();
+            renderMaps();
+
+            document.getElementById('questionsJSON').value = JSON.stringify(DB.questions || [], null, 2);
+            document.getElementById('quizTopicsJSON').value = JSON.stringify(DB.quizTopics || [], null, 2);
+
+            updateDashboard();
+        }
+        /* Score and dashboard */
+        const POINTS_PER_ITEM = 10;
+
+        function getProgress() {
+            return JSON.parse(localStorage.getItem('progressBySection') || '{}');
+        }
+
+        function saveProgress(progress) {
+            localStorage.setItem('progressBySection', JSON.stringify(progress));
+        }
+
+        function markItem(section, id, isCorrect) {
+            const progress = getProgress();
+
+            if (!progress[section]) {
+                progress[section] = {};
+            }
+
+            progress[section][id] = isCorrect ? 'correct': 'incorrect';
+
+            saveProgress(progress);
+            updateDashboard();
+        }
+
+        function countCorrect(progress, section) {
+            if (!progress[section]) return 0;
+
+            return Object.values(progress[section]).filter(value => value === 'correct').length;
+        }
+
+        function getSectionTotals() {
+            return {
+                quiz: Array.isArray(DB.questions) ? DB.questions.length: 0,
+                gloss: Array.isArray(DB.glossary) ? DB.glossary.length: 0,
+                flash: Array.isArray(DB.flashcards) ? DB.flashcards.length: 0,
+                structures: Array.isArray(DB.structures) ? DB.structures.length: 0,
+                cases: Array.isArray(DB.cases) ? DB.cases.length: 0,
+                interactive: Array.isArray(DB.interactives) ? DB.interactives.length: 0,
+                maps: DB.maps && typeof DB.maps === 'object' ? Object.keys(DB.maps).length: 0
+            };
+        }
+
+        function formatProgress(correct, total) {
+            const obtained = correct * POINTS_PER_ITEM;
+            const max = total * POINTS_PER_ITEM;
+            const percent = max > 0 ? Math.round((obtained / max) * 100): 0;
+
+            return {
+                obtained,
+                max,
+                percent,
+                text: `${obtained} / ${max} - ${percent}%`
+            };
+        }
+
+        function updateDashboard() {
+            const progress = getProgress();
+            const totals = getSectionTotals();
+
+            const quiz = formatProgress(countCorrect(progress, 'quiz'), totals.quiz);
+            const gloss = formatProgress(countCorrect(progress, 'gloss'), totals.gloss);
+            const flash = formatProgress(countCorrect(progress, 'flash'), totals.flash);
+            const structures = formatProgress(countCorrect(progress, 'structures'), totals.structures);
+            const cases = formatProgress(countCorrect(progress, 'cases'), totals.cases);
+            const interactive = formatProgress(countCorrect(progress, 'interactive'), totals.interactive);
+            const maps = formatProgress(countCorrect(progress, 'maps'), totals.maps);
+
+            const obtainedTotal =
+            quiz.obtained +
+            gloss.obtained +
+            flash.obtained +
+            structures.obtained +
+            cases.obtained +
+            interactive.obtained +
+            maps.obtained;
+
+            const maxTotal =
+            quiz.max +
+            gloss.max +
+            flash.max +
+            structures.max +
+            cases.max +
+            interactive.max +
+            maps.max;
+
+            const totalPercent = maxTotal > 0
+            ? Math.round((obtainedTotal / maxTotal) * 100): 0;
+
+            document.getElementById('score').textContent = obtainedTotal;
+            document.getElementById('maxScore').textContent = maxTotal;
+            document.getElementById('scorePercent').textContent = `${totalPercent}%`;
+
+            document.getElementById('progressQuiz').textContent = quiz.text;
+            document.getElementById('progressGloss').textContent = gloss.text;
+            document.getElementById('progressFlash').textContent = flash.text;
+            document.getElementById('progressStructures').textContent = structures.text;
+            document.getElementById('progressCases').textContent = cases.text;
+            document.getElementById('progressInteractive').textContent = interactive.text;
+            document.getElementById('progressMaps').textContent = maps.text;
+        }
+
+        loadFromLocal();
+
+        /* Navigation wiring */
+        const sections = document.querySelectorAll("section");
+        document.querySelectorAll(".btn").forEach(btn=> {
+            btn.classList.add("px-3", "py-1", "rounded", "bg-indigo-600", "text-white"); btn.addEventListener('click', ()=> {
+                sections.forEach(sec=>sec.classList.add('hidden-by-default')); document.getElementById(btn.dataset.target).classList.remove('hidden-by-default'); window.scrollTo({
+                    top: 0, behavior: 'smooth'
+                });
+            });
+        });
+
+        /* File import/export */
+        const fileInput = document.getElementById('fileInput');
+        document.querySelector('.btn-file').addEventListener('click', ()=> fileInput.click());
+        fileInput.addEventListener('change', handleFile, false);
+        document.getElementById('exportJSON').addEventListener('click', exportAll);
+
+        function handleFile(evt) {
+            const f = evt.target.files[0];
+            if (!f) return;
+            const reader = new FileReader();
+            reader.onload = e=> {
+                try {
+                    const obj = JSON.parse(e.target.result);
+                    // basic merge/replace: if keys present replace DB keys
+                    DB = Object.assign({}, DB, obj);
+                    ensureDbShape();
+                    renderAll();
+                    saveToLocal();
+                    alert('Contenido importado correctamente.');
+                } catch(err) {
+                    alert('Error leyendo JSON: ' + err.message);
+                }
+            };
+            reader.readAsText(f);
+        }
+        function exportAll() {
+            const dataStr = JSON.stringify(DB, null, 2);
+            const blob = new Blob([dataStr], {
+                type: "application/json"
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = 'contenido_biologia_celular.json'; document.body.appendChild(a); a.click(); a.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        /* CRUD simple for glosario, flashcards, etc. */
+        document.getElementById('addTerm').addEventListener('click', ()=> {
+            const t = document.getElementById('termInput').value.trim(); const d = document.getElementById('defInput').value.trim();
+            if (!t || !d) {
+                alert('Rellena término y definición'); return;
+            }
+            DB.glossary.unshift({
+                term: t, def: d
+            }); document.getElementById('termInput').value = ''; document.getElementById('defInput').value = ''; renderGloss(); saveToLocal();
+        });
+        document.getElementById('clearGloss').addEventListener('click', ()=> {
+            if (!confirm('Borrar todo el glosario?')) return; DB.glossary = []; renderGloss(); saveToLocal();
+        });
+        document.getElementById('importGloss').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('glossJSON').value); if (Array.isArray(arr)) {
+                    DB.glossary = arr;
+                    renderGloss();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Glosario importado');
+                } else alert('Formato inválido');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportGloss').addEventListener('click', ()=> {
+            document.getElementById('glossJSON').value = JSON.stringify(DB.glossary, null, 2);
+        });
+
+        document.getElementById('loadFlash').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('flashJSON').value); if (Array.isArray(arr)) {
+                    DB.flashcards = arr;
+                    renderFlashcards();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Flashcards cargadas');
+                } else alert('Formato inválido');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportFlash').addEventListener('click', ()=> {
+            document.getElementById('flashJSON').value = JSON.stringify(DB.flashcards, null, 2);
+        });
+
+        document.getElementById('loadStructures').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('structuresJSON').value); if (Array.isArray(arr)) {
+                    DB.structures = arr;
+                    renderStructures();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Estructuras cargadas');
+                } else alert('Formato inválido');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportStructures').addEventListener('click', ()=> {
+            document.getElementById('structuresJSON').value = JSON.stringify(DB.structures, null, 2);
+        });
+
+        document.getElementById('loadCases').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('casesJSON').value); if (Array.isArray(arr)) {
+                    DB.cases = arr;
+                    renderCases();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Casos cargados');
+                } else alert('Formato inválido');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportCases').addEventListener('click', ()=> {
+            document.getElementById('casesJSON').value = JSON.stringify(DB.cases, null, 2);
+        });
+
+        document.getElementById('loadInter').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('interJSON').value); if (Array.isArray(arr)) {
+                    DB.interactives = arr;
+                    renderInteratives();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Interactivos cargados');
+                } else alert('Formato inválido');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportInter').addEventListener('click', ()=> {
+            document.getElementById('interJSON').value = JSON.stringify(DB.interactives, null, 2);
+        });
+
+        document.getElementById('loadMaps').addEventListener('click', ()=> {
+            try {
+                const obj = JSON.parse(document.getElementById('mapsJSON').value); if (typeof obj === 'object') {
+                    DB.maps = obj;
+                    renderMaps();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Mapas cargados');
+                } else alert('Formato inválido');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportMaps').addEventListener('click', ()=> {
+            document.getElementById('mapsJSON').value = JSON.stringify(DB.maps || {}, null, 2);
+        });
+
+        /* Quiz: sequential behavior */
+        let filteredQuestions = DB.questions.slice();
+        let qIndex = 0;
+        let currentQuestion = null;
+        function renderQuizTopics() {
+            const select = document.getElementById('quizTopic');
+            if (!select) return;
+            select.innerHTML = '';
+            const allOption = document.createElement('option');
+            allOption.value = 'all';
+            allOption.textContent = 'Todos los bloques';
+            select.appendChild(allOption);
+            const topics = Array.isArray(DB.quizTopics) ? DB.quizTopics: [];
+            topics.forEach(topic => {
+                if (!topic || !topic.value) return;
+                const option = document.createElement('option');
+                option.value = topic.value;
+                option.textContent = topic.label || topic.value;
+                select.appendChild(option);
+            });
+        }
+        function refreshFiltered(topic) {
+            filteredQuestions = (topic && topic !== 'all') ? DB.questions.filter(q=> q.topic === topic): DB.questions.slice();
+            qIndex = 0;
+            document.getElementById('qTotal').textContent = filteredQuestions.length;
+            renderCurrentQuestion();
+        }
+        function renderCurrentQuestion() {
+            if (filteredQuestions.length === 0) {
+                document.getElementById('qText').textContent = 'No hay preguntas en este tema.'; document.getElementById('qOptions').innerHTML = ''; document.getElementById('qNumber').textContent = '0'; return;
+            }
+            if (qIndex < 0) qIndex = 0;
+            if (qIndex >= filteredQuestions.length) qIndex = filteredQuestions.length -1;
+            const q = filteredQuestions[qIndex];
+            document.getElementById('qText').textContent = q.text;
+            const opts = document.getElementById('qOptions'); opts.innerHTML = '';
+            const questionOptions = Array.isArray(q.options) ? q.options: [];
+            questionOptions.forEach((o, i)=> {
+                const label = document.createElement('label'); label.className = 'block'; label.innerHTML = `<input type="radio" name="qopt" value="${i}"> ${escapeHtml(o)}`; opts.appendChild(label);
+            });
+            document.getElementById('qNumber').textContent = (qIndex+1);
+            document.getElementById('qTotal').textContent = filteredQuestions.length;
+            currentQuestion = q;
+        }
+        document.getElementById('quizTopic').addEventListener('change', ()=> {
+            refreshFiltered(document.getElementById('quizTopic').value);
+        });
+        document.getElementById('nextQ').addEventListener('click', ()=> {
+            if (filteredQuestions.length === 0) {
+                alert('No hay preguntas.'); return;
+            } if (qIndex < filteredQuestions.length-1) qIndex++; renderCurrentQuestion();
+        });
+        document.getElementById('prevQ').addEventListener('click', ()=> {
+            if (filteredQuestions.length === 0) {
+                alert('No hay preguntas.'); return;
+            } if (qIndex > 0) qIndex--; renderCurrentQuestion();
+        });
+        document.getElementById('checkA').addEventListener('click', () => {
+            const sel = document.querySelector('input[name="qopt"]:checked');
+            const res = document.getElementById('qResult');
+
+            if (!currentQuestion) {
+                res.textContent = 'No hay pregunta seleccionada.';
+                return;
+            }
+
+            if (!sel) {
+                res.textContent = 'Selecciona una opción.';
+                return;
+            }
+
+            const itemId = currentQuestion.id || `quiz-${qIndex}`;
+
+            if (parseInt(sel.value) === currentQuestion.answer) {
+                res.textContent = '✅ Correcto. ' + (currentQuestion.explain || '');
+                markItem('quiz', itemId, true);
+            } else {
+                res.textContent = '❌ Incorrecto. ' + (currentQuestion.explain || '');
+                markItem('quiz', itemId, false);
+            }
+        });
+
+        document.getElementById('showAll').addEventListener('click', ()=> {
+            document.getElementById('questionsJSON').value = JSON.stringify(DB.questions, null, 2);
+        });
+
+        /* Load questions JSON editor */
+        document.getElementById('loadQuestions').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('questionsJSON').value); if (Array.isArray(arr)) {
+                    DB.questions = arr;
+                    refreshFiltered(document.getElementById('quizTopic').value);
+                    renderAll();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Preguntas cargadas');
+                } else alert('Formato inválido (se espera array).');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('loadQuizTopics').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('quizTopicsJSON').value);
+                if (Array.isArray(arr)) {
+                    DB.quizTopics = arr;
+                    renderQuizTopics();
+                    refreshFiltered(document.getElementById('quizTopic').value);
+                    saveToLocal();
+                    alert('Bloques del quiz cargados');
+                } else {
+                    alert('Formato inválido (se espera array).');
+                }
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportQuizTopics').addEventListener('click', ()=> {
+            document.getElementById('quizTopicsJSON').value = JSON.stringify(DB.quizTopics || [], null, 2);
+        });
+
+        /* Reset progress */
+        document.getElementById('reset').addEventListener('click', () => {
+            if (!confirm('Reiniciar todo el progreso?')) return;
+
+            localStorage.removeItem('progressBySection');
+            localStorage.removeItem('score');
+            localStorage.removeItem('block1');
+            localStorage.removeItem('block2');
+            localStorage.removeItem('block3');
+
+            updateDashboard();
+        });
+
+        /* initial render and quiz setup */
+        renderAll();
+        refreshFiltered('all');
+
+        /* =====================
+HOME JSON (SOLO INICIO)
+===================== */
+
+        document.getElementById("loadHomeJSON").addEventListener("click", () => {
+            try {
+                const data = JSON.parse(document.getElementById("homeJSON").value);
+
+                if (data.title) {
+                    document.getElementById("homeTitle").textContent = data.title;
+                }
+                if (data.description) {
+                    document.getElementById("homeDescription").innerHTML = data.description;
+                }
+            } catch (e) {
+                alert("JSON inválido en Inicio");
+            }
+        });
+
+        document.getElementById("exportHomeJSON").addEventListener("click", () => {
+            const data = {
+                title: document.getElementById("homeTitle").textContent,
+                description: document.getElementById("homeDescription").innerHTML
+            };
+            document.getElementById("homeJSON").value = JSON.stringify(data, null, 2);
+        });
+    </script>
+</body>
+</html>
